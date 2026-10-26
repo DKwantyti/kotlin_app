@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">UniMessenger</string>
+    <string name="login_title">UniMessenger</string>
+    <string name="login_subtitle">University chat: groups and teachers</string>
+    <string name="email">Email</string>
+    <string name="password">Password</string>
+    <string name="display_name">Name</string>
+    <string name="server_url">Server address</string>
+    <string name="sign_in">Sign in</string>
+    <string name="create_account">Student registration</string>
+    <string name="register">Create account</string>
+    <string name="channels">Channels</string>
+    <string name="new_group">New group</string>
+    <string name="teachers">Teachers</string>
+    <string name="logout">Log out</string>
+    <string name="message_hint">Message</string>
+    <string name="send">Send</string>
+    <string name="attach">File</string>
+    <string name="empty_channels">No channels yet. Create a group or message a teacher.</string>
+    <string name="empty_messages">No messages yet.</string>
+    <string name="group_name">Group name</string>
+    <string name="create">Create</string>
+    <string name="cancel">Cancel</string>
+    <string name="saved_file">File saved</string>
+    <string name="enter_email_password">Enter email and password</string>
+    <string name="sign_in_failed">Could not sign in</string>
+    <string name="register_failed">Could not register</string>
+</resources>
