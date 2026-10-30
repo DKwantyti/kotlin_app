@@ -1,6 +1,7 @@
 package com.university.messenger.data
 
 import com.university.messenger.domain.api.ChannelResponse
+import com.university.messenger.domain.api.LiveEvent
 import com.university.messenger.domain.api.MessageResponse
 import com.university.messenger.domain.api.UserResponse
 import java.io.File
@@ -38,6 +39,8 @@ class MessengerRepository(private val api: MessengerApi = MessengerApi()) {
     ): MessageResponse = api.upload(channelId, fileName, size, body, source)
 
     suspend fun download(attachmentId: String, target: File) = api.download(attachmentId, target)
+
+    suspend fun listen(channelId: String, onEvent: (LiveEvent) -> Unit) = api.listen(channelId, onEvent)
 }
 
 object MessengerGraph {

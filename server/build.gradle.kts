@@ -18,6 +18,7 @@ dependencies {
     implementation(libs.ktor.server.status.pages)
     implementation(libs.ktor.server.call.logging)
     implementation(libs.ktor.server.cors)
+    implementation(libs.ktor.server.websockets)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.bcrypt)
     implementation(libs.java.jwt)
@@ -28,6 +29,7 @@ dependencies {
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.ktor.client.content.negotiation)
+    testImplementation(libs.ktor.client.websockets)
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.11.4")
 }
 

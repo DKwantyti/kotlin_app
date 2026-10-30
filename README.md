@@ -49,6 +49,10 @@ Ekrany: logowanie, rejestracja studenta, lista kanałów, czat z załącznikiem.
 
 Dozwolone są zdjęcia i zwykłe dokumenty. Zablokowane są m.in. `exe`, `dmg`, `apk`, `sh`, także gdy niebezpieczne rozszerzenie jest na końcu nazwy (`photo.jpg.exe`). Limit: 1 GB.
 
+## Na żywo
+
+Otwarty czat trzyma WebSocket `/api/channels/{id}/live` z nagłówkiem `Authorization: Bearer`. Serwer wysyła zdarzenie, gdy wiadomość dodano, zmieniono albo usunięto. Zwykłe wysyłanie i historia nadal idą przez HTTP.
+
 ## Usuwanie
 
 `DELETE /api/messages/{id}?mode=soft` ukrywa wiadomość. `mode=hard` usuwa ją z bazy razem z plikiem.
@@ -62,5 +66,4 @@ Dozwolone są zdjęcia i zwykłe dokumenty. Zablokowane są m.in. `exe`, `dmg`, 
 ## Zostawione na później
 
 - panel administratora i tworzenie kolejnych prowadzących
-- odświeżanie czatu na żywo (teraz historia jest czytana z serwera przy wejściu w kanał)
 - zapraszanie osób do grupy

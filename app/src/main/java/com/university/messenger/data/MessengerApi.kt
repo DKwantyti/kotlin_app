@@ -4,6 +4,7 @@ import com.university.messenger.domain.api.AuthResponse
 import com.university.messenger.domain.api.ChannelResponse
 import com.university.messenger.domain.api.CreateGroupRequest
 import com.university.messenger.domain.api.ErrorResponse
+import com.university.messenger.domain.api.LiveEvent
 import com.university.messenger.domain.api.LoginRequest
 import com.university.messenger.domain.api.MessageResponse
 import com.university.messenger.domain.api.PostMessageRequest
@@ -17,6 +18,7 @@ import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.prepareGet
 import io.ktor.client.request.setBody
+import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.http.ContentType
@@ -24,14 +26,18 @@ import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.utils.io.jvm.javaio.copyTo
+import io.ktor.websocket.Frame
+import io.ktor.websocket.readText
 import java.io.File
 import java.io.InputStream
 import kotlinx.io.asSource
 import kotlinx.io.buffered
+import kotlinx.serialization.json.Json
 
 class ApiException(message: String) : Exception(message)
 
 class MessengerApi(private val client: io.ktor.client.HttpClient = ApiClient.http) {
+    private val json = Json { ignoreUnknownKeys = true }
     suspend fun register(email: String, password: String, displayName: String): AuthResponse {
         return client.post(url("/api/auth/register")) {
             contentType(ContentType.Application.Json)
@@ -102,6 +108,16 @@ class MessengerApi(private val client: io.ktor.client.HttpClient = ApiClient.htt
         return response.parse()
     }
 
+    suspend fun listen(channelId: String, onEvent: (LiveEvent) -> Unit) {
+        client.webSocket(urlString = liveUrl(channelId), request = { auth() }) {
+            for (frame in incoming) {
+                if (frame !is Frame.Text) continue
+                val event = runCatching { json.decodeFromString<LiveEvent>(frame.readText()) }.getOrNull() ?: continue
+                onEvent(event)
+            }
+        }
+    }
+
     suspend fun download(attachmentId: String, target: File) {
         client.prepareGet(url("/api/attachments/$attachmentId")) {
             auth()
@@ -116,6 +132,13 @@ class MessengerApi(private val client: io.ktor.client.HttpClient = ApiClient.htt
     }
 
     private fun url(path: String): String = SessionStore.baseUrl.trimEnd('/') + path
+
+    private fun liveUrl(channelId: String): String {
+        val base = SessionStore.baseUrl.trimEnd('/')
+            .replaceFirst("https://", "wss://")
+            .replaceFirst("http://", "ws://")
+        return "$base/api/channels/$channelId/live"
+    }
 
     private fun io.ktor.client.request.HttpRequestBuilder.auth() {
         val token = SessionStore.token ?: return

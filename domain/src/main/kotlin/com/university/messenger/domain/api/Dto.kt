@@ -79,3 +79,10 @@ data class MessageResponse(
     val updatedAt: String,
     val attachments: List<AttachmentResponse>,
 )
+
+@Serializable
+data class LiveEvent(
+    val type: String,
+    val message: MessageResponse? = null,
+    val messageId: String? = null,
+)

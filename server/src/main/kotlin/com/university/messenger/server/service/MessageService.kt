@@ -55,12 +55,18 @@ class MessageService(
         return messages.edit(messageId, trimmed)
     }
 
-    fun delete(actor: Account, messageId: UUID, mode: DeletionMode) {
+    fun delete(actor: Account, messageId: UUID, mode: DeletionMode): UUID? {
         actor.ensureActive()
         val message = messages.findMessage(messageId) ?: throw AppException.NotFound("Message not found")
         if (message.authorId != actor.id) throw AppException.Forbidden("Not allowed")
-        if (message.isDeleted() && mode == DeletionMode.SOFT) return
+        if (message.isDeleted() && mode == DeletionMode.SOFT) return null
         deletion.deleteMessage(mode, messageId)
+        return message.channelId
+    }
+
+    fun ensureVisible(actor: Account, channelId: UUID) {
+        actor.ensureActive()
+        requireMember(actor, channelId)
     }
 
     fun upload(

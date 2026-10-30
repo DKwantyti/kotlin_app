@@ -23,8 +23,12 @@ import com.university.messenger.data.MessengerRepository
 import com.university.messenger.databinding.ActivityChatBinding
 import com.university.messenger.databinding.ItemMessageBinding
 import com.university.messenger.domain.api.MessageResponse
+import com.university.messenger.domain.api.LiveEvent
 import com.university.messenger.domain.policy.FileUploadPolicy
 import com.university.messenger.domain.policy.UploadDecision
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.InputStream
@@ -42,6 +46,21 @@ class ChatViewModel(
     private val stateHolder = MutableLiveData(ChatState())
     val state: LiveData<ChatState> = stateHolder
     private val policy = FileUploadPolicy()
+
+    init {
+        viewModelScope.launch {
+            while (isActive) {
+                try {
+                    repository.listen(channelId, ::applyLive)
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (_: Exception) {
+                    // The socket drops when the server is restarted. Try again.
+                }
+                delay(2_000)
+            }
+        }
+    }
 
     fun refresh() {
         viewModelScope.launch {
@@ -82,6 +101,19 @@ class ChatViewModel(
                 .onSuccess { onSaved(target) }
                 .onFailure { stateHolder.value = stateHolder.value?.copy(error = it.message) }
         }
+    }
+
+    private fun applyLive(event: LiveEvent) {
+        val current = stateHolder.value ?: ChatState()
+        val next = when (event.type) {
+            "deleted" -> current.messages.filterNot { it.id == event.messageId }
+            "message" -> {
+                val message = event.message ?: return
+                (current.messages.filterNot { it.id == message.id } + message).sortedBy { it.createdAt }
+            }
+            else -> return
+        }
+        stateHolder.postValue(current.copy(messages = next, error = null))
     }
 }
 

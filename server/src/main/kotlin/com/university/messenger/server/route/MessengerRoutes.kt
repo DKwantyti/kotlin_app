@@ -22,7 +22,10 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.patch
 import io.ktor.server.routing.post
 import io.ktor.server.routing.route
+import io.ktor.server.websocket.webSocket
 import io.ktor.utils.io.jvm.javaio.toInputStream
+import io.ktor.websocket.CloseReason
+import io.ktor.websocket.close
 import java.io.InputStream
 
 fun Route.channelRoutes(context: AppContext) {
@@ -52,6 +55,7 @@ fun Route.channelRoutes(context: AppContext) {
             val request = call.receive<PostMessageRequest>()
             val message = context.messages.post(actor, call.pathId("id"), request.body)
             call.respond(HttpStatusCode.Created, message.toResponse())
+            context.live.message(message.channelId, message.toResponse())
         }
         post("/{id}/files") {
             val actor = call.account(context)
@@ -67,7 +71,29 @@ fun Route.channelRoutes(context: AppContext) {
                     source = source,
                 )
                 call.respond(HttpStatusCode.Created, message.toResponse())
+                context.live.message(channelId, message.toResponse())
             }
+        }
+        webSocket("/{id}/live") {
+            val actor = try {
+                call.account(context)
+            } catch (error: AppException) {
+                close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, error.message ?: "Unauthorized"))
+                return@webSocket
+            }
+            val channelId = try {
+                call.pathId("id")
+            } catch (error: AppException) {
+                close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, error.message ?: "Invalid id"))
+                return@webSocket
+            }
+            try {
+                context.messages.ensureVisible(actor, channelId)
+            } catch (error: AppException) {
+                close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, error.message ?: "Not allowed"))
+                return@webSocket
+            }
+            context.live.join(channelId, this)
         }
     }
     post("/api/direct/{userId}") {
@@ -83,10 +109,13 @@ fun Route.messageRoutes(context: AppContext) {
         val request = call.receive<EditMessageRequest>()
         val message = context.messages.edit(actor, call.pathId("id"), request.body)
         call.respond(message.toResponse())
+        context.live.message(message.channelId, message.toResponse())
     }
     delete("/api/messages/{id}") {
         val actor = call.account(context)
-        context.messages.delete(actor, call.pathId("id"), call.deletionMode())
+        val messageId = call.pathId("id")
+        val channelId = context.messages.delete(actor, messageId, call.deletionMode())
+        if (channelId != null) context.live.deleted(channelId, messageId)
         call.respond(HttpStatusCode.NoContent)
     }
     get("/api/attachments/{id}") {

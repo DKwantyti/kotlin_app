@@ -21,6 +21,7 @@ import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.response.respond
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
+import io.ktor.server.websocket.WebSockets
 import io.ktor.util.AttributeKey
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -42,6 +43,10 @@ fun Application.module(context: AppContext) {
         json(Json { ignoreUnknownKeys = true })
     }
     install(CallLogging)
+    install(WebSockets) {
+        pingPeriodMillis = 20_000
+        timeoutMillis = 30_000
+    }
     install(CORS) {
         anyHost()
         allowHeader(HttpHeaders.Authorization)

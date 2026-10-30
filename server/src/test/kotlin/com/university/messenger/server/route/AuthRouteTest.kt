@@ -3,6 +3,7 @@ package com.university.messenger.server.route
 import com.university.messenger.domain.api.AuthResponse
 import com.university.messenger.domain.api.ChannelResponse
 import com.university.messenger.domain.api.CreateGroupRequest
+import com.university.messenger.domain.api.LiveEvent
 import com.university.messenger.domain.api.MessageResponse
 import com.university.messenger.domain.api.PostMessageRequest
 import com.university.messenger.domain.api.RegisterStudentRequest
@@ -14,6 +15,8 @@ import com.university.messenger.server.persistence.InMemoryMessenger
 import com.university.messenger.server.service.MemoryFileStorage
 import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.websocket.WebSockets
+import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -24,6 +27,9 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.testApplication
+import io.ktor.websocket.Frame
+import io.ktor.websocket.readText
+import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
@@ -63,5 +69,52 @@ class AuthRouteTest {
             header(HttpHeaders.Authorization, "Bearer ${auth.token}")
         }
         assertEquals("Hello", history.body<List<MessageResponse>>().single().body)
+    }
+
+    @Test
+    fun openChatReceivesMessageOverWebSocket() = testApplication {
+        val store = InMemoryMessenger()
+        application {
+            module(buildContext(store, store, store, MemoryFileStorage(), PlainHasher(), MemoryTokens()))
+        }
+        val client = createClient {
+            install(ContentNegotiation) { json() }
+            install(WebSockets)
+        }
+
+        val created = client.post("/api/auth/register") {
+            contentType(ContentType.Application.Json)
+            setBody(RegisterStudentRequest("adam@uni.local", "Haslo123", "Adam"))
+        }
+        val auth = created.body<AuthResponse>()
+        val group = client.post("/api/channels") {
+            header(HttpHeaders.Authorization, "Bearer ${auth.token}")
+            contentType(ContentType.Application.Json)
+            setBody(CreateGroupRequest("Lab"))
+        }
+        val channelId = group.body<ChannelResponse>().id
+
+        client.webSocket("/api/channels/$channelId/live", request = {
+            header(HttpHeaders.Authorization, "Bearer ${auth.token}")
+        }) {
+            waitUntilReady()
+            client.post("/api/channels/$channelId/messages") {
+                header(HttpHeaders.Authorization, "Bearer ${auth.token}")
+                contentType(ContentType.Application.Json)
+                setBody(PostMessageRequest("Hello"))
+            }
+            val event = nextEvent()
+            assertEquals("message", event.type)
+            assertEquals("Hello", event.message?.body)
+        }
+    }
+
+    private suspend fun io.ktor.websocket.WebSocketSession.waitUntilReady() {
+        while (nextEvent().type != "ready") Unit
+    }
+
+    private suspend fun io.ktor.websocket.WebSocketSession.nextEvent(): LiveEvent {
+        val frame = incoming.receive() as Frame.Text
+        return Json.decodeFromString(frame.readText())
     }
 }

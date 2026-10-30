@@ -15,6 +15,7 @@ import com.university.messenger.server.service.DeletionCoordinator
 import com.university.messenger.server.service.HardDeletionStrategy
 import com.university.messenger.server.service.MessageService
 import com.university.messenger.server.service.SoftDeletionStrategy
+import com.university.messenger.server.realtime.ChannelLive
 import com.university.messenger.server.config.AppConfig
 import com.university.messenger.server.persistence.PostgresChannelRepository
 import com.university.messenger.server.persistence.PostgresMessageRepository
@@ -36,6 +37,7 @@ class AppContext(
     val auth: AuthService,
     val channels: ChannelService,
     val messages: MessageService,
+    val live: ChannelLive,
 )
 
 fun buildContext(
@@ -58,6 +60,7 @@ fun buildContext(
         auth = AuthService(users, hasher, tokens),
         channels = ChannelService(channels, users),
         messages = MessageService(messages, channels, files, deletion),
+        live = ChannelLive(),
     )
 }
 
