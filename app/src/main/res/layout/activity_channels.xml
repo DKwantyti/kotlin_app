@@ -51,6 +51,13 @@
         android:text="@string/teachers" />
 
     <com.google.android.material.button.MaterialButton
+        android:id="@+id/profileButton"
+        style="@style/Widget.Material3.Button.TonalButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/profile" />
+
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/logoutButton"
         style="@style/Widget.Material3.Button.TextButton"
         android:layout_width="match_parent"

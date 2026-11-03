@@ -23,6 +23,11 @@ class MessengerRepository(private val api: MessengerApi = MessengerApi()) {
         SessionStore.saveLogin(response.token, response.user.role, response.user.displayName, response.user.id)
     }
 
+    suspend fun profile(): UserResponse = api.profile()
+
+    suspend fun updateProfile(displayName: String): UserResponse =
+        api.updateProfile(displayName).also { SessionStore.displayName = it.displayName }
+
     suspend fun channels(): List<ChannelResponse> = api.channels()
 
     suspend fun teachers(): List<UserResponse> = api.teachers()

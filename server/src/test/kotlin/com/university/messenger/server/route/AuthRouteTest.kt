@@ -21,6 +21,8 @@ import io.ktor.client.request.get
 import io.ktor.client.request.patch
 import io.ktor.client.request.delete
 import com.university.messenger.domain.api.EditMessageRequest
+import com.university.messenger.domain.api.UpdateProfileRequest
+import com.university.messenger.domain.api.UserResponse
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -110,6 +112,29 @@ class AuthRouteTest {
             header(HttpHeaders.Authorization, "Bearer ${auth.token}")
         }.status)
         assertEquals(null, store.findMessage(java.util.UUID.fromString(message.id)))
+    }
+
+    @Test
+    fun signedInUserCanReadAndRenameOwnProfile() = testApplication {
+        val store = InMemoryMessenger()
+        application {
+            module(buildContext(store, store, store, MemoryFileStorage(), PlainHasher(), MemoryTokens()))
+        }
+        val client = createClient { install(ContentNegotiation) { json() } }
+        val auth = client.post("/api/auth/register") {
+            contentType(ContentType.Application.Json)
+            setBody(RegisterStudentRequest("profile@uni.local", "Haslo123", "Anna"))
+        }.body<AuthResponse>()
+        assertEquals(HttpStatusCode.Unauthorized, client.get("/api/auth/me").status)
+        val updated = client.patch("/api/auth/me") {
+            header(HttpHeaders.Authorization, "Bearer ${auth.token}")
+            contentType(ContentType.Application.Json)
+            setBody(UpdateProfileRequest("  Anna Nowak  "))
+        }.body<UserResponse>()
+        assertEquals(auth.user.copy(displayName = "Anna Nowak"), updated)
+        assertEquals(updated, client.get("/api/auth/me") {
+            header(HttpHeaders.Authorization, "Bearer ${auth.token}")
+        }.body<UserResponse>())
     }
 
     @Test

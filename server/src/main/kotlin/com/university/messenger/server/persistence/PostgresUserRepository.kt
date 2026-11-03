@@ -99,6 +99,20 @@ class PostgresUserRepository : UserRepository {
         sql.update("INSERT INTO teachers (user_id, department) VALUES (?, ?)", id, department)
     }
 
+    override fun updateDisplayName(id: UUID, name: String): Account? {
+        return DatabaseFactory.transaction { sql ->
+            sql.one(
+                """
+                UPDATE users SET display_name = ?, updated_at = ?
+                WHERE id = ? AND deleted_at IS NULL
+                RETURNING id, email, display_name, role, deleted_at,
+                    (SELECT department FROM teachers WHERE user_id = users.id) AS department
+                """.trimIndent(),
+                name, Instant.now(), id,
+            ) { it.toAccount() }
+        }
+    }
+
     override fun findByEmail(email: String): StoredUser? = findOne("WHERE u.email = ?", email)
 
     override fun findById(id: UUID): StoredUser? = findOne("WHERE u.id = ?", id)

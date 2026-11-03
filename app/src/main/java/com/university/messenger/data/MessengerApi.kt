@@ -63,6 +63,16 @@ class MessengerApi(private val client: io.ktor.client.HttpClient = ApiClient.htt
         }.parse()
     }
 
+    suspend fun profile(): UserResponse = client.get(url("/api/auth/me")) { auth() }.parse()
+
+    suspend fun updateProfile(displayName: String): UserResponse {
+        return client.patch(url("/api/auth/me")) {
+            auth()
+            contentType(ContentType.Application.Json)
+            setBody(com.university.messenger.domain.api.UpdateProfileRequest(displayName))
+        }.parse()
+    }
+
     suspend fun channels(): List<ChannelResponse> {
         return client.get(url("/api/channels")) { auth() }.parse()
     }

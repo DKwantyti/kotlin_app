@@ -48,6 +48,7 @@ interface UserRepository {
 
     fun insertStudent(id: UUID, email: String, passwordHash: String, displayName: String): Account
     fun insertTeacher(id: UUID, email: String, passwordHash: String, displayName: String, department: String): Account
+    fun updateDisplayName(id: UUID, name: String): Account?
     fun findByEmail(email: String): StoredUser?
     fun findById(id: UUID): StoredUser?
     fun listByRole(role: Role, includeDeleted: Boolean): List<Account>

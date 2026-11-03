@@ -80,6 +80,13 @@ class InMemoryMessenger : UserRepository, ChannelRepository, MessageRepository {
         department: String,
     ): Account = insert(id, email, passwordHash, displayName, Role.TEACHER, department)
 
+    override fun updateDisplayName(id: UUID, name: String): Account? {
+        val user = users[id]?.takeUnless { it.deletedAt != null } ?: return null
+        val updated = user.copy(displayName = name)
+        users[id] = updated
+        return updated.account()
+    }
+
     override fun findByEmail(email: String): StoredUser? {
         val record = users.values.find { it.email == email.lowercase() } ?: return null
         return StoredUser(record.account(), record.passwordHash)

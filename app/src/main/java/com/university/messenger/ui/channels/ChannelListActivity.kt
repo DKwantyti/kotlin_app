@@ -6,6 +6,10 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
+import android.text.InputFilter
+import android.widget.LinearLayout
+import android.widget.TextView
+import com.university.messenger.domain.policy.RegistrationRules
 import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -55,6 +59,22 @@ class ChannelListViewModel(private val repository: MessengerRepository) : ViewMo
         }
     }
 
+    fun loadProfile(onReady: (UserResponse) -> Unit) {
+        viewModelScope.launch {
+            runCatching { repository.profile() }
+                .onSuccess(onReady)
+                .onFailure { stateHolder.value = stateHolder.value?.copy(error = it.message) }
+        }
+    }
+
+    fun updateProfile(name: String, onSaved: () -> Unit, onError: (String?) -> Unit) {
+        viewModelScope.launch {
+            runCatching { repository.updateProfile(name) }
+                .onSuccess { onSaved() }
+                .onFailure { onError(it.message) }
+        }
+    }
+
     fun loadTeachers(onReady: (List<UserResponse>) -> Unit) {
         viewModelScope.launch {
             runCatching { repository.teachers() }
@@ -95,6 +115,7 @@ class ChannelListActivity : AppCompatActivity() {
         binding.channelList.adapter = adapter
         binding.newGroupButton.setOnClickListener { askForGroup() }
         binding.teachersButton.setOnClickListener { pickTeacher() }
+        binding.profileButton.setOnClickListener { viewModel.loadProfile(::showProfile) }
         binding.logoutButton.setOnClickListener { logout() }
         viewModel.state.observe(this) { state ->
             adapter.submit(state.channels)
@@ -119,6 +140,45 @@ class ChannelListActivity : AppCompatActivity() {
                 .putExtra(ChatActivity.EXTRA_CHANNEL_ID, channel.id)
                 .putExtra(ChatActivity.EXTRA_TITLE, channel.title),
         )
+    }
+
+    private fun showProfile(profile: UserResponse) {
+        val spacing = (24 * resources.displayMetrics.density).toInt()
+        val input = EditText(this).apply {
+            hint = getString(R.string.display_name)
+            filters = arrayOf(InputFilter.LengthFilter(120))
+            setSingleLine()
+            setText(profile.displayName)
+        }
+        val role = getString(if (profile.role == "TEACHER") R.string.profile_teacher else R.string.profile_student)
+        val details = TextView(this).apply {
+            text = listOfNotNull(profile.email, role, profile.department).joinToString("\n")
+        }
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(spacing, 0, spacing, 0)
+            addView(details)
+            addView(input)
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.profile)
+            .setView(content)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.save, null)
+            .show()
+        val save = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+        save.setOnClickListener {
+            val name = input.text.toString()
+            if (!RegistrationRules.isValidDisplayName(name)) {
+                input.error = getString(R.string.profile_invalid_name)
+                return@setOnClickListener
+            }
+            save.isEnabled = false
+            viewModel.updateProfile(name, dialog::dismiss) { error ->
+                input.error = error ?: getString(R.string.profile_save_error)
+                save.isEnabled = true
+            }
+        }
     }
 
     private fun askForGroup() {

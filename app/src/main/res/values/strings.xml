@@ -47,4 +47,9 @@
     <string name="chat_delete_help">Ukrycie usuwa wiadomość z widoku wszystkich uczestników. Trwałe usunięcie kasuje też załączniki.</string>
     <string name="chat_hide">Ukryj</string>
     <string name="chat_delete_forever">Usuń trwale</string>
+    <string name="profile">Mój profil</string>
+    <string name="profile_teacher">Wykładowca</string>
+    <string name="profile_student">Student</string>
+    <string name="profile_invalid_name">Nazwa musi mieć od 2 do 120 znaków.</string>
+    <string name="profile_save_error">Nie udało się zapisać profilu.</string>
 </resources>

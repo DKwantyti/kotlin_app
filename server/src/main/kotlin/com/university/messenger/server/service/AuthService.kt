@@ -58,6 +58,15 @@ class AuthService(
         return AuthResult(tokens.issue(account), account)
     }
 
+    fun updateProfile(actor: Account, displayName: String): Account {
+        ensureEnabled(actor)
+        if (!RegistrationRules.isValidDisplayName(displayName)) {
+            throw AppException.BadRequest("Name must be 2 to 120 characters")
+        }
+        return users.updateDisplayName(actor.id, displayName.trim())
+            ?: throw AppException.NotFound("User not found")
+    }
+
     fun login(email: String, password: String): AuthResult {
         val stored = users.findByEmail(email.trim().lowercase())
             ?: throw AppException.Unauthorized("Invalid email or password")
