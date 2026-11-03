@@ -125,6 +125,18 @@ class PostgresChannelRepository : ChannelRepository {
         }
     }
 
+    override fun addMember(channelId: UUID, userId: UUID) {
+        DatabaseFactory.transaction { sql ->
+            sql.update(
+                """
+                INSERT INTO channel_members (channel_id, user_id, joined_at) VALUES (?, ?, ?)
+                ON CONFLICT (channel_id, user_id) DO NOTHING
+                """.trimIndent(),
+                channelId, userId, Instant.now(),
+            )
+        }
+    }
+
     override fun isMember(channelId: UUID, userId: UUID): Boolean {
         return DatabaseFactory.transaction { sql ->
             sql.one(

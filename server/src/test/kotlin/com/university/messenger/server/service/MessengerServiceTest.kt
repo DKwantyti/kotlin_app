@@ -64,6 +64,23 @@ class MessengerServiceTest {
     }
 
     @Test
+    fun onlyGroupOwnerCanAddMembers() {
+        val owner = context.auth.registerStudent("owner@uni.local", "Haslo123", "Owner").account
+        val member = context.auth.registerStudent("member@uni.local", "Haslo123", "Member").account
+        val other = context.auth.registerStudent("other@uni.local", "Haslo123", "Other").account
+        val group = context.channels.createGroup(owner, "Course lab", null)
+        assertThrows<AppException.Forbidden> {
+            context.channels.addMember(other, group.id, member.email)
+        }
+        context.channels.addMember(owner, group.id, member.email.uppercase())
+        context.channels.addMember(owner, group.id, member.email)
+        assertEquals(listOf(group.id), context.channels.list(member).map { it.id })
+        assertThrows<AppException.Forbidden> {
+            context.channels.addMember(member, group.id, other.email)
+        }
+    }
+
+    @Test
     fun studentCanMessageTeacherButNotAnotherStudent() {
         val teacher = store.insertTeacher(UUID.randomUUID(), "jan@uni.local", "plain:Haslo123", "Jan", "Computer science")
         val student = context.auth.registerStudent("ola@uni.local", "Haslo123", "Ola").account

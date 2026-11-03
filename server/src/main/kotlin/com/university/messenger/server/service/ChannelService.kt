@@ -1,6 +1,8 @@
 package com.university.messenger.server.service
 
 import com.university.messenger.domain.model.Account
+import com.university.messenger.domain.model.ChannelKind
+import com.university.messenger.domain.policy.RegistrationRules
 import com.university.messenger.domain.model.ChannelSummary
 import com.university.messenger.domain.model.Role
 import com.university.messenger.server.AppException
@@ -33,6 +35,20 @@ class ChannelService(
             throw AppException.BadRequest("Description can be at most 500 characters")
         }
         return channels.createGroup(trimmed, about, actor)
+    }
+
+    fun addMember(actor: Account, channelId: UUID, email: String) {
+        actor.ensureActive()
+        val channel = channels.findChannel(channelId)?.takeUnless { it.isDeleted() }
+            ?: throw AppException.NotFound("Channel not found")
+        if (!channels.isMember(channelId, actor.id)) throw AppException.Forbidden("Not allowed")
+        if (channel.kind != ChannelKind.GROUP || channel.createdBy != actor.id) {
+            throw AppException.Forbidden("Only the group owner can add members")
+        }
+        if (!RegistrationRules.isValidEmail(email)) throw AppException.BadRequest("Invalid email")
+        val member = users.findByEmail(email.trim().lowercase())?.account?.takeUnless { it.isDeleted() }
+            ?: throw AppException.NotFound("User not found")
+        channels.addMember(channelId, member.id)
     }
 
     fun openDirect(actor: Account, otherId: UUID): ChannelSummary {

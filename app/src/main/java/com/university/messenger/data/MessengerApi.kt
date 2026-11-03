@@ -89,6 +89,15 @@ class MessengerApi(private val client: io.ktor.client.HttpClient = ApiClient.htt
         }.parse()
     }
 
+    suspend fun addChannelMember(channelId: String, email: String) {
+        val response = client.post(url("/api/channels/$channelId/members")) {
+            auth()
+            contentType(ContentType.Application.Json)
+            setBody(com.university.messenger.domain.api.AddChannelMemberRequest(email))
+        }
+        if (response.status.value !in 200..299) throw ApiException(response.errorMessage())
+    }
+
     suspend fun openDirect(userId: String): ChannelResponse {
         return client.post(url("/api/direct/$userId")) { auth() }.parse()
     }

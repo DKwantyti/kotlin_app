@@ -109,11 +109,12 @@ fun Account.toResponse(): UserResponse {
     )
 }
 
-fun ChannelSummary.toResponse(): ChannelResponse {
+fun ChannelSummary.toResponse(viewerId: UUID): ChannelResponse {
     return ChannelResponse(
         id = id.toString(),
         title = title,
         kind = kind.name,
+        canManageMembers = kind == com.university.messenger.domain.model.ChannelKind.GROUP && createdBy == viewerId,
         description = description,
     )
 }

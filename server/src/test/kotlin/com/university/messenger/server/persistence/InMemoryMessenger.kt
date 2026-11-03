@@ -146,6 +146,10 @@ class InMemoryMessenger : UserRepository, ChannelRepository, MessageRepository {
         return summary(record, record.name)
     }
 
+    override fun addMember(channelId: UUID, userId: UUID) {
+        members.getValue(channelId).add(userId)
+    }
+
     override fun isMember(channelId: UUID, userId: UUID): Boolean {
         return members[channelId]?.contains(userId) == true
     }

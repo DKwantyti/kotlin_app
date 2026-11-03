@@ -70,11 +70,15 @@ data class AuthResponse(
 )
 
 @Serializable
+data class AddChannelMemberRequest(val email: String)
+
+@Serializable
 data class ChannelResponse(
     val id: String,
     val title: String,
     val kind: String,
     val description: String? = null,
+    val canManageMembers: Boolean = false,
 )
 
 @Serializable

@@ -138,7 +138,8 @@ class ChannelListActivity : AppCompatActivity() {
         startActivity(
             Intent(this, ChatActivity::class.java)
                 .putExtra(ChatActivity.EXTRA_CHANNEL_ID, channel.id)
-                .putExtra(ChatActivity.EXTRA_TITLE, channel.title),
+                .putExtra(ChatActivity.EXTRA_TITLE, channel.title)
+                .putExtra(ChatActivity.EXTRA_MANAGE_MEMBERS, channel.canManageMembers),
         )
     }
 

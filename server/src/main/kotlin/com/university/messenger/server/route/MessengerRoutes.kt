@@ -1,6 +1,7 @@
 package com.university.messenger.server.route
 
 import com.university.messenger.domain.api.CreateGroupRequest
+import com.university.messenger.domain.api.AddChannelMemberRequest
 import com.university.messenger.domain.api.EditMessageRequest
 import com.university.messenger.domain.api.PostMessageRequest
 import com.university.messenger.domain.api.ReactionRequest
@@ -37,13 +38,19 @@ fun Route.channelRoutes(context: AppContext) {
     route("/api/channels") {
         get {
             val actor = call.account(context)
-            call.respond(context.channels.list(actor).map { it.toResponse() })
+            call.respond(context.channels.list(actor).map { it.toResponse(actor.id) })
         }
         post {
             val actor = call.account(context)
             val request = call.receive<CreateGroupRequest>()
             val channel = context.channels.createGroup(actor, request.name, request.description)
-            call.respond(HttpStatusCode.Created, channel.toResponse())
+            call.respond(HttpStatusCode.Created, channel.toResponse(actor.id))
+        }
+        post("/{id}/members") {
+            val actor = call.account(context)
+            val request = call.receive<AddChannelMemberRequest>()
+            context.channels.addMember(actor, call.pathId("id"), request.email)
+            call.respond(HttpStatusCode.NoContent)
         }
         get("/{id}/messages") {
             val actor = call.account(context)
@@ -101,7 +108,7 @@ fun Route.channelRoutes(context: AppContext) {
     post("/api/direct/{userId}") {
         val actor = call.account(context)
         val channel = context.channels.openDirect(actor, call.pathId("userId"))
-        call.respond(channel.toResponse())
+        call.respond(channel.toResponse(actor.id))
     }
 }
 

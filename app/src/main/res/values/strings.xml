@@ -52,4 +52,7 @@
     <string name="profile_student">Student</string>
     <string name="profile_invalid_name">Nazwa musi mieć od 2 do 120 znaków.</string>
     <string name="profile_save_error">Nie udało się zapisać profilu.</string>
+    <string name="chat_add_member">Dodaj uczestnika</string>
+    <string name="chat_member_added">Uczestnik ma dostęp do grupy.</string>
+    <string name="chat_member_error">Nie udało się dodać uczestnika.</string>
 </resources>

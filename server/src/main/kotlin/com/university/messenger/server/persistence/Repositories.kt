@@ -61,6 +61,7 @@ interface ChannelRepository {
     fun listFor(userId: UUID): List<ChannelSummary>
     fun findChannel(id: UUID): ChannelSummary?
     fun isMember(channelId: UUID, userId: UUID): Boolean
+    fun addMember(channelId: UUID, userId: UUID)
 }
 
 interface MessageRepository {

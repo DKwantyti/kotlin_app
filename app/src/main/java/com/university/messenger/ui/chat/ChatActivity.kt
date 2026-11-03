@@ -118,6 +118,17 @@ class ChatViewModel(
         }
     }
 
+    fun addMember(email: String, onAdded: () -> Unit, onError: (String?) -> Unit) {
+        viewModelScope.launch {
+            runCatching { repository.addChannelMember(channelId, email) }
+                .onSuccess { onAdded() }
+                .onFailure {
+                    if (it is CancellationException) throw it
+                    onError(it.message)
+                }
+        }
+    }
+
     fun edit(message: MessageResponse, body: String) {
         viewModelScope.launch {
             runCatching { repository.editMessage(message.id, body) }
@@ -226,6 +237,12 @@ class ChatActivity : AppCompatActivity() {
         binding.toolbar.setNavigationIcon(R.drawable.ic_chat_back)
         binding.toolbar.setNavigationContentDescription(R.string.chat_back)
         binding.toolbar.setNavigationOnClickListener { finish() }
+        if (intent.getBooleanExtra(EXTRA_MANAGE_MEMBERS, false)) {
+            binding.toolbar.menu.add(R.string.chat_add_member).setOnMenuItemClickListener {
+                showAddMember()
+                true
+            }
+        }
         binding.messageList.layoutManager = LinearLayoutManager(this).apply { stackFromEnd = true }
         binding.cancelReply.setOnClickListener { selectReply(null) }
         selectReply(viewModel.replyTarget)
@@ -318,6 +335,31 @@ class ChatActivity : AppCompatActivity() {
             .show()
     }
 
+    private fun showAddMember() {
+        val input = EditText(this).apply {
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+            hint = getString(R.string.email)
+            setSingleLine()
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.chat_add_member)
+            .setView(input)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.chat_add_member, null)
+            .show()
+        val add = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+        add.setOnClickListener {
+            add.isEnabled = false
+            viewModel.addMember(input.text.toString(), {
+                dialog.dismiss()
+                Toast.makeText(this, R.string.chat_member_added, Toast.LENGTH_SHORT).show()
+            }, { error ->
+                input.error = error ?: getString(R.string.chat_member_error)
+                add.isEnabled = true
+            })
+        }
+    }
+
     private fun showEdit(message: MessageResponse) {
         val input = EditText(this).apply {
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
@@ -361,6 +403,7 @@ class ChatActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_CHANNEL_ID = "channel_id"
         const val EXTRA_TITLE = "title"
+        const val EXTRA_MANAGE_MEMBERS = "manage_members"
     }
 }
 
