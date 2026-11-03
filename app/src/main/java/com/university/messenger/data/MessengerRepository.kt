@@ -36,6 +36,11 @@ class MessengerRepository(private val api: MessengerApi = MessengerApi()) {
     suspend fun sendMessage(channelId: String, body: String, replyToId: String?): MessageResponse =
         api.sendMessage(channelId, body, replyToId)
 
+    suspend fun editMessage(messageId: String, body: String) = api.editMessage(messageId, body)
+
+    suspend fun deleteMessage(messageId: String, mode: com.university.messenger.domain.model.DeletionMode) =
+        api.deleteMessage(messageId, mode)
+
     suspend fun react(messageId: String, emoji: String?) = api.react(messageId, emoji)
 
     suspend fun upload(

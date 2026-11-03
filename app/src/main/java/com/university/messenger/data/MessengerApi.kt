@@ -15,6 +15,7 @@ import io.ktor.client.call.body
 import io.ktor.client.request.forms.formData
 import io.ktor.client.request.forms.submitFormWithBinaryData
 import io.ktor.client.request.get
+import io.ktor.client.request.delete
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.patch
@@ -92,6 +93,19 @@ class MessengerApi(private val client: io.ktor.client.HttpClient = ApiClient.htt
             contentType(ContentType.Application.Json)
             setBody(PostMessageRequest(body, replyToId))
         }.parse()
+    }
+
+    suspend fun editMessage(messageId: String, body: String): MessageResponse {
+        return client.patch(url("/api/messages/$messageId")) {
+            auth()
+            contentType(ContentType.Application.Json)
+            setBody(com.university.messenger.domain.api.EditMessageRequest(body))
+        }.parse()
+    }
+
+    suspend fun deleteMessage(messageId: String, mode: com.university.messenger.domain.model.DeletionMode) {
+        val response = client.delete(url("/api/messages/$messageId?mode=${mode.name.lowercase()}")) { auth() }
+        if (response.status.value !in 200..299) throw ApiException(response.errorMessage())
     }
 
     suspend fun react(messageId: String, emoji: String?): MessageResponse {

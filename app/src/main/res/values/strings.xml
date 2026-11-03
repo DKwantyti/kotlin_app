@@ -40,4 +40,11 @@
     <string name="teacher_code">Kod z dziekanatu</string>
     <string name="teacher_code_help">Poproś dziekanat o sześciocyfrowy kod przypisany do Twojego adresu e-mail.</string>
     <string name="teacher_code_error">Wpisz sześć cyfr z kodu otrzymanego w dziekanacie.</string>
+    <string name="save">Zapisz</string>
+    <string name="chat_edit">Edytuj wiadomość</string>
+    <string name="chat_body_required">Wpisz treść wiadomości.</string>
+    <string name="chat_delete">Usuń wiadomość</string>
+    <string name="chat_delete_help">Ukrycie usuwa wiadomość z widoku wszystkich uczestników. Trwałe usunięcie kasuje też załączniki.</string>
+    <string name="chat_hide">Ukryj</string>
+    <string name="chat_delete_forever">Usuń trwale</string>
 </resources>

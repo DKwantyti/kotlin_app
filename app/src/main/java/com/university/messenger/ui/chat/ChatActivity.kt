@@ -8,6 +8,9 @@ import android.net.Uri
 import android.view.Gravity
 import android.view.inputmethod.InputMethodManager
 import android.widget.FrameLayout
+import android.widget.EditText
+import android.text.InputFilter
+import com.university.messenger.domain.model.DeletionMode
 import androidx.appcompat.app.AlertDialog
 import androidx.core.view.isVisible
 import androidx.core.view.ViewCompat
@@ -109,6 +112,25 @@ class ChatViewModel(
             runCatching { repository.sendMessage(channelId, text, replyToId) }
                 .onSuccess {
                     onSent()
+                    refresh()
+                }
+                .onFailure { showError(it) }
+        }
+    }
+
+    fun edit(message: MessageResponse, body: String) {
+        viewModelScope.launch {
+            runCatching { repository.editMessage(message.id, body) }
+                .onSuccess { refresh() }
+                .onFailure { showError(it) }
+        }
+    }
+
+    fun delete(message: MessageResponse, mode: DeletionMode) {
+        viewModelScope.launch {
+            runCatching { repository.deleteMessage(message.id, mode) }
+                .onSuccess {
+                    if (replyTarget?.id == message.id) replyTarget = null
                     refresh()
                 }
                 .onFailure { showError(it) }
@@ -281,6 +303,10 @@ class ChatActivity : AppCompatActivity() {
                 Unit
             },
         )
+        if (message.authorId == SessionStore.userId) {
+            actions += getString(R.string.chat_edit) to { showEdit(message) }
+            actions += getString(R.string.chat_delete) to { showDelete(message) }
+        }
         if (message.body.isNotBlank()) {
             actions += getString(R.string.chat_copy) to {
                 getSystemService(ClipboardManager::class.java)
@@ -289,6 +315,46 @@ class ChatActivity : AppCompatActivity() {
         }
         AlertDialog.Builder(this)
             .setItems(actions.map { it.first }.toTypedArray()) { _, index -> actions[index].second() }
+            .show()
+    }
+
+    private fun showEdit(message: MessageResponse) {
+        val input = EditText(this).apply {
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
+            filters = arrayOf(InputFilter.LengthFilter(4000))
+            setText(message.body)
+            setSelection(length())
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.chat_edit)
+            .setView(input)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.save, null)
+            .show()
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val body = input.text.toString().trim()
+            if (body.isBlank() && message.attachments.isEmpty()) {
+                input.error = getString(R.string.chat_body_required)
+            } else {
+                viewModel.edit(message, body)
+                dialog.dismiss()
+            }
+        }
+    }
+
+    private fun showDelete(message: MessageResponse) {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.chat_delete)
+            .setMessage(R.string.chat_delete_help)
+            .setNegativeButton(R.string.cancel, null)
+            .setNeutralButton(R.string.chat_hide) { _, _ ->
+                if (viewModel.replyTarget?.id == message.id) selectReply(null)
+                viewModel.delete(message, DeletionMode.SOFT)
+            }
+            .setPositiveButton(R.string.chat_delete_forever) { _, _ ->
+                if (viewModel.replyTarget?.id == message.id) selectReply(null)
+                viewModel.delete(message, DeletionMode.HARD)
+            }
             .show()
     }
 

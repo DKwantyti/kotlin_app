@@ -18,6 +18,9 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.client.request.get
+import io.ktor.client.request.patch
+import io.ktor.client.request.delete
+import com.university.messenger.domain.api.EditMessageRequest
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -69,6 +72,44 @@ class AuthRouteTest {
             header(HttpHeaders.Authorization, "Bearer ${auth.token}")
         }
         assertEquals("Hello", history.body<List<MessageResponse>>().single().body)
+    }
+
+    @Test
+    fun ownerCanEditAndDeleteMessageThroughApi() = testApplication {
+        val store = InMemoryMessenger()
+        application {
+            module(buildContext(store, store, store, MemoryFileStorage(), PlainHasher(), MemoryTokens()))
+        }
+        val client = createClient { install(ContentNegotiation) { json() } }
+        val auth = client.post("/api/auth/register") {
+            contentType(ContentType.Application.Json)
+            setBody(RegisterStudentRequest("editor@uni.local", "Haslo123", "Editor"))
+        }.body<AuthResponse>()
+        val group = client.post("/api/channels") {
+            header(HttpHeaders.Authorization, "Bearer ${auth.token}")
+            contentType(ContentType.Application.Json)
+            setBody(CreateGroupRequest("Lab"))
+        }.body<ChannelResponse>()
+        val message = client.post("/api/channels/${group.id}/messages") {
+            header(HttpHeaders.Authorization, "Bearer ${auth.token}")
+            contentType(ContentType.Application.Json)
+            setBody(PostMessageRequest("Before"))
+        }.body<MessageResponse>()
+        val path = "/api/messages/${message.id}"
+        val edited = client.patch(path) {
+            header(HttpHeaders.Authorization, "Bearer ${auth.token}")
+            contentType(ContentType.Application.Json)
+            setBody(EditMessageRequest("After"))
+        }
+        assertEquals("After", edited.body<MessageResponse>().body)
+        assertEquals(HttpStatusCode.NoContent, client.delete("$path?mode=soft") {
+            header(HttpHeaders.Authorization, "Bearer ${auth.token}")
+        }.status)
+        assertEquals(true, store.findMessage(java.util.UUID.fromString(message.id))?.isDeleted())
+        assertEquals(HttpStatusCode.NoContent, client.delete("$path?mode=hard") {
+            header(HttpHeaders.Authorization, "Bearer ${auth.token}")
+        }.status)
+        assertEquals(null, store.findMessage(java.util.UUID.fromString(message.id)))
     }
 
     @Test
