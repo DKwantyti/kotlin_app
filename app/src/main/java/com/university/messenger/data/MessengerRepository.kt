@@ -23,6 +23,14 @@ class MessengerRepository(private val api: MessengerApi = MessengerApi()) {
         SessionStore.saveLogin(response.token, response.user.role, response.user.displayName, response.user.id)
     }
 
+    suspend fun mailPreferences() = api.mailPreferences()
+
+    suspend fun updateMailPreferences(enabled: Boolean) = api.updateMailPreferences(enabled)
+
+    suspend fun resendVerification() = api.resendVerification()
+
+    suspend fun sendGroupMail(channelId: String, subject: String, body: String) = api.sendGroupMail(channelId, subject, body)
+
     suspend fun profile(): UserResponse = api.profile()
 
     suspend fun updateProfile(displayName: String): UserResponse =

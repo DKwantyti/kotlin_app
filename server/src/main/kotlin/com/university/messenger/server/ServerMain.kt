@@ -11,6 +11,7 @@ import com.university.messenger.server.service.AuthService
 import com.university.messenger.server.route.authRoutes
 import com.university.messenger.server.route.channelRoutes
 import com.university.messenger.server.route.messageRoutes
+import com.university.messenger.server.route.mailRoutes
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
@@ -102,6 +103,7 @@ fun Application.module(context: AppContext) {
     routing {
         get("/health") { call.respond(mapOf("status" to "ok")) }
         authRoutes(context)
+        mailRoutes(context)
         channelRoutes(context)
         messageRoutes(context)
     }

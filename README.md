@@ -1,5 +1,6 @@
 # UniMessenger
 
+
 Prosty komunikator uczelniany: grupy, czat z prowadzącym, historia wiadomości na serwerze oraz pliki i zdjęcia do 1 GB.
 
 To wersja demonstracyjna pod projekt studencki.
@@ -60,6 +61,21 @@ Ekrany obejmują logowanie, rejestrację studenta i wykładowcy, listę kanałó
 ## Rozmowy i grupy
 
 Dotknij wiadomości, aby otworzyć menu odpowiedzi, reakcji i kopiowania. Własne wiadomości można też edytować, ukrywać lub usuwać trwale. Menu paska rozmowy umożliwia wyszukiwanie w treści wiadomości i nazwach załączników. Właściciel grupy może z tego menu dodać uczestnika po adresie e-mail istniejącego konta.
+
+## E-mail przez Gmail
+
+Na serwerze ustaw wszystkie zmienne środowiskowe:
+
+- `GMAIL_ADDRESS` — adres Gmail, z którego będą wysyłane wiadomości.
+- `GMAIL_APP_PASSWORD` — hasło aplikacji wygenerowane dla konta z weryfikacją dwuetapową. Zapisz je jako sekret środowiska serwera.
+- `MAIL_PUBLIC_URL` — publiczny adres HTTPS serwera obsługującego `/mail/verify` i `/mail/unsubscribe`.
+- `JWT_SECRET` — własny losowy sekret, co najmniej 32 znaki.
+
+Po restarcie nowy użytkownik otrzyma link ważny przez 24 godziny. Dotychczasowe konta mogą poprosić o link w „Mój profil” → „E-mail”. Przy włączonej poczcie dostęp do rozmów wymaga potwierdzenia adresu. Bez konfiguracji Gmail aplikacja działa w lokalnym trybie bez poczty.
+
+W „Mój profil” → „E-mail” można włączyć powiadomienia. Wiadomość prywatna wywołuje ogólne powiadomienie bez treści rozmowy. Wykładowca będący właścicielem grupy może przygotować i wysłać ogłoszenie z menu grupy lub utworzyć szkic na podstawie własnej wiadomości. Odbiorcy z potwierdzonym adresem i zgodą otrzymują indywidualne wiadomości z linkiem do wypisania się. Raport po wysłaniu pokazuje, ile wiadomości przyjął serwer poczty. Jedna wysyłka grupowa obsługuje do 50 subskrybentów.
+
+[Pomoc Google dotycząca haseł aplikacji](https://support.google.com/accounts/answer/185833)
 
 ## Pliki
 

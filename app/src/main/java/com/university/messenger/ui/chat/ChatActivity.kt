@@ -9,6 +9,8 @@ import android.view.Gravity
 import android.view.inputmethod.InputMethodManager
 import android.widget.FrameLayout
 import android.widget.EditText
+import android.widget.LinearLayout
+import com.university.messenger.domain.api.GroupMailResult
 import android.text.InputFilter
 import com.university.messenger.domain.model.DeletionMode
 import androidx.appcompat.app.AlertDialog
@@ -122,6 +124,17 @@ class ChatViewModel(
         viewModelScope.launch {
             runCatching { repository.messages(channelId, query) }
                 .onSuccess(onResults)
+                .onFailure {
+                    if (it is CancellationException) throw it
+                    onError(it.message)
+                }
+        }
+    }
+
+    fun sendGroupMail(subject: String, body: String, onResult: (GroupMailResult) -> Unit, onError: (String?) -> Unit) {
+        viewModelScope.launch {
+            runCatching { repository.sendGroupMail(channelId, subject, body) }
+                .onSuccess(onResult)
                 .onFailure {
                     if (it is CancellationException) throw it
                     onError(it.message)
@@ -253,6 +266,12 @@ class ChatActivity : AppCompatActivity() {
             true
         }
         if (intent.getBooleanExtra(EXTRA_MANAGE_MEMBERS, false)) {
+            if (SessionStore.role == "TEACHER") {
+                binding.toolbar.menu.add(R.string.group_mail).setOnMenuItemClickListener {
+                    showGroupMail()
+                    true
+                }
+            }
             binding.toolbar.menu.add(R.string.chat_add_member).setOnMenuItemClickListener {
                 showAddMember()
                 true
@@ -336,6 +355,10 @@ class ChatActivity : AppCompatActivity() {
             },
         )
         if (message.authorId == SessionStore.userId) {
+            if (message.body.isNotBlank() && SessionStore.role == "TEACHER" &&
+                intent.getBooleanExtra(EXTRA_MANAGE_MEMBERS, false)) {
+                actions += getString(R.string.group_mail_from_message) to { showGroupMail(message.body) }
+            }
             actions += getString(R.string.chat_edit) to { showEdit(message) }
             actions += getString(R.string.chat_delete) to { showDelete(message) }
         }
@@ -407,6 +430,58 @@ class ChatActivity : AppCompatActivity() {
             }
         }
         dialog.show()
+    }
+
+    private fun showGroupMail(draft: String = "") {
+        val subject = EditText(this).apply {
+            hint = getString(R.string.group_mail_subject)
+            setSingleLine()
+            filters = arrayOf(InputFilter.LengthFilter(120))
+            setText(getString(R.string.group_mail_template, binding.toolbar.title?.toString().orEmpty().take(90)))
+        }
+        val body = EditText(this).apply {
+            hint = getString(R.string.group_mail_body)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
+            filters = arrayOf(InputFilter.LengthFilter(4000))
+            minLines = 3
+            maxLines = 8
+            setText(draft)
+        }
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            val inset = (20 * resources.displayMetrics.density).toInt()
+            setPadding(inset, 0, inset, 0)
+            addView(subject)
+            addView(body)
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.group_mail)
+            .setMessage(R.string.group_mail_help)
+            .setView(content)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.send, null)
+            .show()
+        val send = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+        send.setOnClickListener {
+            val title = subject.text.toString().trim()
+            val text = body.text.toString().trim()
+            if (title.isBlank() || text.isBlank()) {
+                body.error = getString(R.string.group_mail_required)
+                return@setOnClickListener
+            }
+            send.isEnabled = false
+            dialog.setCancelable(false)
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).isEnabled = false
+            viewModel.sendGroupMail(title, text, { result ->
+                dialog.dismiss()
+                Toast.makeText(this, getString(R.string.group_mail_result, result.accepted, result.failed), Toast.LENGTH_LONG).show()
+            }, { error ->
+                body.error = error ?: getString(R.string.group_mail_error)
+                send.isEnabled = true
+                dialog.setCancelable(true)
+                dialog.getButton(AlertDialog.BUTTON_NEGATIVE).isEnabled = true
+            })
+        }
     }
 
     private fun showAddMember() {

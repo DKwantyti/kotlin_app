@@ -9,6 +9,12 @@ CREATE TABLE IF NOT EXISTS users (
     deleted_at TIMESTAMPTZ
 );
 
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verify_hash TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verify_sent_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_notifications BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_direct_mail_at TIMESTAMPTZ;
+
 CREATE TABLE IF NOT EXISTS students (
     user_id UUID PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE
 );
@@ -28,6 +34,8 @@ CREATE TABLE IF NOT EXISTS channels (
     created_at TIMESTAMPTZ NOT NULL,
     deleted_at TIMESTAMPTZ
 );
+
+ALTER TABLE channels ADD COLUMN IF NOT EXISTS last_group_mail_at TIMESTAMPTZ;
 
 CREATE UNIQUE INDEX IF NOT EXISTS channels_direct_key_active
     ON channels (direct_key)

@@ -25,6 +25,7 @@ dependencies {
     implementation(libs.hikari)
     implementation(libs.postgres)
     implementation(libs.logback)
+    implementation("org.eclipse.angus:angus-mail:2.0.3")
 
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.ktor.server.test.host)

@@ -51,6 +51,18 @@ data class ErrorResponse(
 )
 
 @Serializable
+data class MailPreferences(val available: Boolean, val verified: Boolean, val notifications: Boolean)
+
+@Serializable
+data class UpdateMailPreferences(val notifications: Boolean)
+
+@Serializable
+data class GroupMailRequest(val subject: String, val body: String)
+
+@Serializable
+data class GroupMailResult(val accepted: Int, val failed: Int)
+
+@Serializable
 data class UpdateProfileRequest(val displayName: String)
 
 @Serializable

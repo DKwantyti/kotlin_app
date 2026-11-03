@@ -12,6 +12,7 @@ import com.university.messenger.domain.api.RegisterStudentRequest
 import com.university.messenger.domain.api.RegisterTeacherRequest
 import com.university.messenger.domain.api.UserResponse
 import io.ktor.client.call.body
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.forms.formData
 import io.ktor.client.request.forms.submitFormWithBinaryData
 import io.ktor.client.request.get
@@ -61,6 +62,34 @@ class MessengerApi(private val client: io.ktor.client.HttpClient = ApiClient.htt
         return client.post(url("/api/auth/login")) {
             contentType(ContentType.Application.Json)
             setBody(LoginRequest(email, password))
+        }.parse()
+    }
+
+    suspend fun mailPreferences(): com.university.messenger.domain.api.MailPreferences =
+        client.get(url("/api/auth/me/mail")) { auth() }.parse()
+
+    suspend fun updateMailPreferences(enabled: Boolean): com.university.messenger.domain.api.MailPreferences {
+        return client.patch(url("/api/auth/me/mail")) {
+            auth()
+            contentType(ContentType.Application.Json)
+            setBody(com.university.messenger.domain.api.UpdateMailPreferences(enabled))
+        }.parse()
+    }
+
+    suspend fun resendVerification() {
+        val response = client.post(url("/api/auth/me/mail/verification")) { auth() }
+        if (response.status.value !in 200..299) throw ApiException(response.errorMessage())
+    }
+
+    suspend fun sendGroupMail(channelId: String, subject: String, body: String): com.university.messenger.domain.api.GroupMailResult {
+        return client.post(url("/api/channels/$channelId/mail")) {
+            timeout {
+                requestTimeoutMillis = 450_000
+                socketTimeoutMillis = 450_000
+            }
+            auth()
+            contentType(ContentType.Application.Json)
+            setBody(com.university.messenger.domain.api.GroupMailRequest(subject, body))
         }.parse()
     }
 

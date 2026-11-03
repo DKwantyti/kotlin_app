@@ -9,6 +9,9 @@ import android.widget.EditText
 import android.text.InputFilter
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
+import com.university.messenger.domain.api.MailPreferences
+import kotlinx.coroutines.CancellationException
 import com.university.messenger.domain.policy.RegistrationRules
 import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
@@ -65,6 +68,33 @@ class ChannelListViewModel(private val repository: MessengerRepository) : ViewMo
                 .onSuccess(onReady)
                 .onFailure { stateHolder.value = stateHolder.value?.copy(error = it.message) }
         }
+    }
+
+    fun loadMailPreferences(onReady: (MailPreferences) -> Unit) {
+        viewModelScope.launch {
+            runCatching { repository.mailPreferences() }.onSuccess(onReady).onFailure(::showMailError)
+        }
+    }
+
+    fun resendVerification(onComplete: () -> Unit) {
+        viewModelScope.launch {
+            runCatching { repository.resendVerification() }
+                .onSuccess { onComplete() }
+                .onFailure(::showMailError)
+        }
+    }
+
+    fun updateMailPreferences(enabled: Boolean, onComplete: () -> Unit) {
+        viewModelScope.launch {
+            runCatching { repository.updateMailPreferences(enabled) }
+                .onSuccess { onComplete() }
+                .onFailure(::showMailError)
+        }
+    }
+
+    private fun showMailError(error: Throwable) {
+        if (error is CancellationException) throw error
+        stateHolder.value = stateHolder.value?.copy(error = error.message)
     }
 
     fun updateProfile(name: String, onSaved: () -> Unit, onError: (String?) -> Unit) {
@@ -164,6 +194,7 @@ class ChannelListActivity : AppCompatActivity() {
         val dialog = AlertDialog.Builder(this)
             .setTitle(R.string.profile)
             .setView(content)
+            .setNeutralButton(R.string.profile_mail) { _, _ -> viewModel.loadMailPreferences(::showMailPreferences) }
             .setNegativeButton(R.string.cancel, null)
             .setPositiveButton(R.string.save, null)
             .show()
@@ -180,6 +211,31 @@ class ChannelListActivity : AppCompatActivity() {
                 save.isEnabled = true
             }
         }
+    }
+
+    private fun showMailPreferences(preferences: MailPreferences) {
+        if (isFinishing || isDestroyed) return
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.profile_mail)
+            .setNegativeButton(R.string.cancel, null)
+        when {
+            !preferences.available -> dialog.setMessage(R.string.mail_unavailable)
+            !preferences.verified -> dialog
+                .setMessage(R.string.mail_unverified)
+                .setPositiveButton(R.string.mail_resend) { _, _ ->
+                    viewModel.resendVerification {
+                        Toast.makeText(this, R.string.mail_resend_result, Toast.LENGTH_LONG).show()
+                    }
+                }
+            else -> dialog
+                .setMessage(if (preferences.notifications) R.string.mail_enabled else R.string.mail_disabled)
+                .setPositiveButton(if (preferences.notifications) R.string.mail_disable else R.string.mail_enable) { _, _ ->
+                    viewModel.updateMailPreferences(!preferences.notifications) {
+                        Toast.makeText(this, R.string.mail_saved, Toast.LENGTH_SHORT).show()
+                    }
+                }
+        }
+        dialog.show()
     }
 
     private fun askForGroup() {

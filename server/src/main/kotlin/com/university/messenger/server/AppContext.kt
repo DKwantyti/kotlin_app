@@ -38,6 +38,7 @@ class AppContext(
     val channels: ChannelService,
     val messages: MessageService,
     val live: ChannelLive,
+    val mail: com.university.messenger.server.service.MailService?,
 )
 
 fun buildContext(
@@ -48,6 +49,7 @@ fun buildContext(
     hasher: PasswordHasher,
     tokens: TokenIssuer,
     demoTeacherEnabled: Boolean = false,
+    mail: com.university.messenger.server.service.MailService? = null,
 ): AppContext {
     val deletion = DeletionCoordinator(
         listOf(
@@ -62,6 +64,7 @@ fun buildContext(
         channels = ChannelService(channels, users),
         messages = MessageService(messages, channels, files, deletion),
         live = ChannelLive(),
+        mail = mail,
     )
 }
 
@@ -79,6 +82,7 @@ fun productionContext(config: AppConfig): AppContext {
         hasher = hasher,
         tokens = JwtTokenIssuer(config.jwtSecret),
         demoTeacherEnabled = config.demoTeacherEnabled,
+        mail = config.mailService(),
     )
 }
 

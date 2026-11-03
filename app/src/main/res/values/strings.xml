@@ -61,4 +61,23 @@
     <string name="chat_search_empty">Brak pasujących wiadomości.</string>
     <string name="chat_search_error">Nie udało się przeszukać rozmowy.</string>
     <string name="chat_download">Pobierz plik</string>
+    <string name="profile_mail">E-mail</string>
+    <string name="mail_unavailable">Obsługa poczty jest wyłączona na serwerze.</string>
+    <string name="mail_unverified">Otwórz link potwierdzający wysłany na Twój adres e-mail. Jeśli nie masz wiadomości, poproś o nowy link.</string>
+    <string name="mail_resend">Wyślij link ponownie</string>
+    <string name="mail_resend_result">Sprawdź skrzynkę. Kolejny link można wysłać po dwóch minutach.</string>
+    <string name="mail_enabled">Powiadomienia e-mail są włączone.</string>
+    <string name="mail_disabled">Powiadomienia e-mail są wyłączone.</string>
+    <string name="mail_disable">Wyłącz</string>
+    <string name="mail_enable">Włącz</string>
+    <string name="mail_saved">Zapisano ustawienia poczty.</string>
+    <string name="group_mail">Wyślij e-mail do grupy</string>
+    <string name="group_mail_from_message">Użyj jako ogłoszenia e-mail</string>
+    <string name="group_mail_subject">Temat</string>
+    <string name="group_mail_body">Treść ogłoszenia</string>
+    <string name="group_mail_template">Ogłoszenie dla grupy %1$s</string>
+    <string name="group_mail_help">Sprawdź temat i treść. E-mail otrzymają uczestnicy z potwierdzonym adresem i włączonymi powiadomieniami.</string>
+    <string name="group_mail_required">Wpisz temat i treść ogłoszenia.</string>
+    <string name="group_mail_result">Przyjęte przez pocztę: %1$d. Nie wysłano: %2$d.</string>
+    <string name="group_mail_error">Nie udało się wysłać ogłoszenia.</string>
 </resources>

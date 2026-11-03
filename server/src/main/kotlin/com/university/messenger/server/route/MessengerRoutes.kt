@@ -1,6 +1,7 @@
 package com.university.messenger.server.route
 
 import com.university.messenger.domain.api.CreateGroupRequest
+import com.university.messenger.domain.api.GroupMailRequest
 import com.university.messenger.domain.api.AddChannelMemberRequest
 import com.university.messenger.domain.api.EditMessageRequest
 import com.university.messenger.domain.api.PostMessageRequest
@@ -52,6 +53,12 @@ fun Route.channelRoutes(context: AppContext) {
             context.channels.addMember(actor, call.pathId("id"), request.email)
             call.respond(HttpStatusCode.NoContent)
         }
+        post("/{id}/mail") {
+            val actor = call.account(context)
+            val mail = context.mail ?: throw AppException.BadRequest("Email is unavailable")
+            val request = call.receive<GroupMailRequest>()
+            call.respond(mail.sendGroupMail(actor, call.pathId("id"), request.subject, request.body))
+        }
         get("/{id}/messages") {
             val actor = call.account(context)
             val limit = call.request.queryParameters["limit"]?.toIntOrNull() ?: 100
@@ -65,6 +72,7 @@ fun Route.channelRoutes(context: AppContext) {
             val message = context.messages.post(actor, call.pathId("id"), request.body, request.replyToId)
             call.respond(HttpStatusCode.Created, message.toResponse())
             context.live.message(message.channelId, message.toResponse())
+            context.mail?.notifyDirectMessage(message.channelId, actor.id)
         }
         post("/{id}/files") {
             val actor = call.account(context)
@@ -82,6 +90,7 @@ fun Route.channelRoutes(context: AppContext) {
                 )
                 call.respond(HttpStatusCode.Created, message.toResponse())
                 context.live.message(channelId, message.toResponse())
+                context.mail?.notifyDirectMessage(channelId, actor.id)
             }
         }
         webSocket("/{id}/live") {

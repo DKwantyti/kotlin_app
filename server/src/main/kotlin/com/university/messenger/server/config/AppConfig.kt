@@ -15,6 +15,21 @@ data class AppConfig(
     val uploadDir: Path,
     val demoTeacherEnabled: Boolean = false,
 ) {
+    fun mailService(): com.university.messenger.server.service.MailService? {
+        val address = System.getenv("GMAIL_ADDRESS")
+        val password = System.getenv("GMAIL_APP_PASSWORD")
+        val publicUrl = System.getenv("MAIL_PUBLIC_URL")
+        if (address == null && password == null && publicUrl == null) return null
+        require(!address.isNullOrBlank() && !password.isNullOrBlank() && !publicUrl.isNullOrBlank()) {
+            "Set GMAIL_ADDRESS, GMAIL_APP_PASSWORD and MAIL_PUBLIC_URL together"
+        }
+        return com.university.messenger.server.service.MailService(
+            com.university.messenger.server.service.GmailSender(address, password.filterNot { it.isWhitespace() }),
+            publicUrl,
+            jwtSecret,
+        )
+    }
+
     companion object {
         fun fromEnv(): AppConfig = AppConfig(
             port = System.getenv("PORT")?.toIntOrNull() ?: 8080,

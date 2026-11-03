@@ -6,6 +6,20 @@ import com.university.messenger.server.PlainHasher
 import com.university.messenger.server.buildContext
 import com.university.messenger.server.config.DatabaseConfig
 import com.university.messenger.server.service.MemoryFileStorage
+import com.university.messenger.server.service.MailService
+import com.university.messenger.server.AppException
+import kotlinx.coroutines.runBlocking
+import com.university.messenger.server.module
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.request.forms.submitForm
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.parameters
+import io.ktor.server.testing.testApplication
+import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
@@ -56,6 +70,49 @@ class PostgresMessengerTest {
                 assertNull(messages.findMessage(message.id))
                 assertEquals(emptyList<Any>(), messages.studentItems(student.id))
                 assertEquals(1, files.deleted.size)
+
+                val sent = mutableListOf<Pair<String, String>>()
+                val mail = MailService({ to, _, body -> sent += to to body }, "https://messenger.example", "t".repeat(32))
+                assertFalse(mail.preferences(student.id).verified)
+                assertThrows<AppException.Forbidden> { mail.updatePreferences(student.id, true) }
+                runBlocking {
+                    mail.sendVerification(student)
+                    mail.sendVerification(student)
+                }
+                assertEquals(1, sent.size)
+                val verification = sent.single().second.substringAfter("token=")
+                val mailContext = buildContext(
+                    users, PostgresChannelRepository(), messages, files, PlainHasher(), MemoryTokens(), mail = mail,
+                )
+                val accessToken = mailContext.auth.login(student.email, "Haslo123").token
+                testApplication {
+                    application { module(mailContext) }
+                    assertEquals(HttpStatusCode.Forbidden, client.get("/api/channels") {
+                        header(HttpHeaders.Authorization, "Bearer $accessToken")
+                    }.status)
+                    assertEquals(HttpStatusCode.OK, client.get("/mail/verify?token=$verification").status)
+                    assertFalse(mail.preferences(student.id).verified)
+                    val form = parameters { append("token", verification) }
+                    assertEquals(HttpStatusCode.OK, client.submitForm("/mail/verify", form).status)
+                    assertEquals(HttpStatusCode.BadRequest, client.submitForm("/mail/verify", form).status)
+                    assertEquals(HttpStatusCode.OK, client.get("/api/channels") {
+                        header(HttpHeaders.Authorization, "Bearer $accessToken")
+                    }.status)
+                }
+                assertTrue(mail.updatePreferences(student.id, true).notifications)
+                val direct = context.channels.openDirect(teacher, student.id)
+                runBlocking {
+                    mail.notifyDirectMessage(direct.id, teacher.id)
+                    mail.notifyDirectMessage(direct.id, teacher.id)
+                }
+                assertEquals(2, sent.size)
+                val unsubscribe = sent.last().second.substringAfter("token=")
+                val result = runBlocking { mail.sendGroupMail(teacher, group.id, "Calculus", "New assignment") }
+                assertEquals(1, result.accepted)
+                assertEquals(student.email, sent.last().first)
+                assertTrue(mail.unsubscribe(unsubscribe))
+                assertFalse(mail.preferences(student.id).notifications)
+                assertFalse(mail.unsubscribe(unsubscribe + "x"))
             } finally {
                 admin.createStatement().use { it.execute("DROP SCHEMA $schema CASCADE") }
             }

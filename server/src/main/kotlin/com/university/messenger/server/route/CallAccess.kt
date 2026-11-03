@@ -9,13 +9,16 @@ import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.header
 import java.util.UUID
 
-fun ApplicationCall.account(context: AppContext): Account {
+fun ApplicationCall.account(context: AppContext, requireVerified: Boolean = true): Account {
     val header = request.header(HttpHeaders.Authorization)
         ?: throw AppException.Unauthorized("Missing token")
     if (!header.startsWith("Bearer ")) throw AppException.Unauthorized("Missing token")
     val userId = context.tokens.userId(header.removePrefix("Bearer ").trim())
     val stored = context.users.findById(userId) ?: throw AppException.Unauthorized("Session expired")
     context.auth.ensureEnabled(stored.account)
+    if (requireVerified && context.mail?.preferences(userId)?.verified == false) {
+        throw AppException.Forbidden("Confirm your email in My profile before using the messenger")
+    }
     return stored.account
 }
 
