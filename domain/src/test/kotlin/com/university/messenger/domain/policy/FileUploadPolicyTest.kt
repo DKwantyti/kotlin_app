@@ -21,6 +21,15 @@ class FileUploadPolicyTest {
     }
 
     @Test
+    fun validatesFileNameAndAcceptsUnknownSize() {
+        for (name in listOf("", "../notes.pdf", "folder\\notes.pdf", "a\u0000.txt", "a".repeat(252) + ".pdf")) {
+            assertEquals(UploadDecision.Rejected("Invalid file name"), policy.evaluate(name, null))
+        }
+        assertEquals(UploadDecision.Rejected("File must have an extension"), policy.evaluate("notes", null))
+        assertEquals(UploadDecision.Accepted, policy.evaluate("  " + "a".repeat(251) + ".pdf  ", null))
+    }
+
+    @Test
     fun rejectsEmptyAndOversizedFile() {
         assertEquals("File is empty", (policy.evaluate("a.txt", 0) as UploadDecision.Rejected).reason)
         assertEquals(

@@ -34,5 +34,6 @@ dependencies {
 }
 
 tasks.test {
+    inputs.property("postgresIntegrationEnabled", providers.environmentVariable("TEST_DB_URL").map { it.startsWith("jdbc:postgresql:") }.orElse(false))
     useJUnitPlatform()
 }

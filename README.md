@@ -55,7 +55,11 @@ Adres serwera na ekranie logowania:
 - emulator: `http://10.0.2.2:8080`
 - telefon w tej samej sieci: `http://IP-komputera:8080`
 
-Ekrany: logowanie, rejestracja studenta i wykładowcy, lista kanałów, czat z załącznikiem.
+Ekrany obejmują logowanie, rejestrację studenta i wykładowcy, listę kanałów, profil i czat. Z listy kanałów otwórz „Mój profil”, aby zmienić nazwę wyświetlaną. Rola, e-mail i jednostka pozostają danymi konta.
+
+## Rozmowy i grupy
+
+Dotknij wiadomości, aby otworzyć menu odpowiedzi, reakcji i kopiowania. Własne wiadomości można też edytować, ukrywać lub usuwać trwale. Menu paska rozmowy umożliwia wyszukiwanie w treści wiadomości i nazwach załączników. Właściciel grupy może z tego menu dodać uczestnika po adresie e-mail istniejącego konta.
 
 ## Pliki
 
@@ -72,10 +76,12 @@ Otwarty czat trzyma WebSocket `/api/channels/{id}/live` z nagłówkiem `Authoriz
 ## Testy
 
 ```bash
-./gradlew :domain:test :server:test
+./gradlew :domain:test :server:test :app:assembleDebug
+./gradlew :domain:pitest
 ```
+
+PIT zapisuje raport dla reguł rejestracji i plików w `domain/build/reports/pitest`. Test PostgreSQL uruchamia się po ustawieniu `TEST_DB_URL`, np. `jdbc:postgresql://localhost:5432/unimessenger`, oraz odpowiednich `TEST_DB_USER` i `TEST_DB_PASSWORD`. Użyj testowej bazy z prawem do tworzenia schematów. Test tworzy własny schemat i usuwa go po zakończeniu.
 
 ## Zostawione na później
 
 - panel administratora
-- zapraszanie osób do grupy
