@@ -55,4 +55,10 @@
     <string name="chat_add_member">Dodaj uczestnika</string>
     <string name="chat_member_added">Uczestnik ma dostęp do grupy.</string>
     <string name="chat_member_error">Nie udało się dodać uczestnika.</string>
+    <string name="chat_search">Szukaj w rozmowie</string>
+    <string name="chat_search_hint">Treść wiadomości lub nazwa pliku</string>
+    <string name="chat_search_results">Wyniki wyszukiwania</string>
+    <string name="chat_search_empty">Brak pasujących wiadomości.</string>
+    <string name="chat_search_error">Nie udało się przeszukać rozmowy.</string>
+    <string name="chat_download">Pobierz plik</string>
 </resources>

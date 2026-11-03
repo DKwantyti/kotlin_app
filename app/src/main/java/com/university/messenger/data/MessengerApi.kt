@@ -17,6 +17,7 @@ import io.ktor.client.request.forms.submitFormWithBinaryData
 import io.ktor.client.request.get
 import io.ktor.client.request.delete
 import io.ktor.client.request.header
+import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.patch
 import com.university.messenger.domain.api.ReactionRequest
@@ -102,8 +103,11 @@ class MessengerApi(private val client: io.ktor.client.HttpClient = ApiClient.htt
         return client.post(url("/api/direct/$userId")) { auth() }.parse()
     }
 
-    suspend fun messages(channelId: String): List<MessageResponse> {
-        return client.get(url("/api/channels/$channelId/messages")) { auth() }.parse()
+    suspend fun messages(channelId: String, query: String? = null): List<MessageResponse> {
+        return client.get(url("/api/channels/$channelId/messages")) {
+            auth()
+            if (query != null) parameter("q", query)
+        }.parse()
     }
 
     suspend fun sendMessage(channelId: String, body: String, replyToId: String?): MessageResponse {

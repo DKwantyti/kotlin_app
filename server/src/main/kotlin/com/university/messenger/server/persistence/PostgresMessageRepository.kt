@@ -67,7 +67,7 @@ class PostgresMessageRepository : MessageRepository {
         return findMessage(messageId) ?: error("Saved message $messageId was not readable")
     }
 
-    override fun history(channelId: UUID, limit: Int): List<Message> {
+    override fun history(channelId: UUID, limit: Int, query: String): List<Message> {
         return DatabaseFactory.transaction { sql ->
             val headers = sql.query(
                 """
@@ -76,10 +76,16 @@ class PostgresMessageRepository : MessageRepository {
                 FROM messages m
                 JOIN users u ON u.id = m.author_id
                 WHERE m.channel_id = ? AND m.deleted_at IS NULL
-                ORDER BY m.created_at DESC
+                  AND (? = '' OR strpos(lower(m.body), lower(?)) > 0 OR EXISTS (
+                      SELECT 1 FROM attachments a
+                      WHERE a.message_id = m.id AND a.deleted_at IS NULL
+                        AND strpos(lower(a.original_name), lower(?)) > 0
+                  ))
+                ORDER BY m.created_at DESC, m.id DESC
                 LIMIT ?
                 """.trimIndent(),
                 channelId,
+                query, query, query,
                 limit,
             ) { it.toHeader() }.asReversed()
             val attachments = loadAttachments(sql, headers.map { it.id })

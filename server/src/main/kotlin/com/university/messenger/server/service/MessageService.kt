@@ -28,10 +28,12 @@ class MessageService(
     private val deletion: DeletionCoordinator,
     private val policy: FileUploadPolicy = FileUploadPolicy(),
 ) {
-    fun history(actor: Account, channelId: UUID, limit: Int): List<Message> {
+    fun history(actor: Account, channelId: UUID, limit: Int, query: String = ""): List<Message> {
         actor.ensureActive()
         requireMember(actor, channelId)
-        return messages.history(channelId, limit.coerceIn(1, 200))
+        val term = query.trim()
+        if (term.length > 120) throw AppException.BadRequest("Search can be at most 120 characters")
+        return messages.history(channelId, limit.coerceIn(1, 200), term)
     }
 
     fun post(actor: Account, channelId: UUID, body: String, replyToId: String? = null): Message {

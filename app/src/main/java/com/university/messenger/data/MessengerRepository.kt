@@ -38,7 +38,8 @@ class MessengerRepository(private val api: MessengerApi = MessengerApi()) {
 
     suspend fun openDirect(userId: String): ChannelResponse = api.openDirect(userId)
 
-    suspend fun messages(channelId: String): List<MessageResponse> = api.messages(channelId)
+    suspend fun messages(channelId: String, query: String? = null): List<MessageResponse> =
+        api.messages(channelId, query)
 
     suspend fun sendMessage(channelId: String, body: String, replyToId: String?): MessageResponse =
         api.sendMessage(channelId, body, replyToId)

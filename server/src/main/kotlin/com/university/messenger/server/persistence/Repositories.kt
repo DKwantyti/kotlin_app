@@ -76,7 +76,7 @@ interface MessageRepository {
 
     fun setReaction(id: UUID, userId: UUID, emoji: String?): Message?
 
-    fun history(channelId: UUID, limit: Int): List<Message>
+    fun history(channelId: UUID, limit: Int, query: String = ""): List<Message>
     fun findMessage(id: UUID): Message?
     fun edit(id: UUID, body: String): Message
     fun softDelete(id: UUID)

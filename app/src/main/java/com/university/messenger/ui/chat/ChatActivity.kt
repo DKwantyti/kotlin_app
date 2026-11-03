@@ -118,6 +118,17 @@ class ChatViewModel(
         }
     }
 
+    fun search(query: String, onResults: (List<MessageResponse>) -> Unit, onError: (String?) -> Unit) {
+        viewModelScope.launch {
+            runCatching { repository.messages(channelId, query) }
+                .onSuccess(onResults)
+                .onFailure {
+                    if (it is CancellationException) throw it
+                    onError(it.message)
+                }
+        }
+    }
+
     fun addMember(email: String, onAdded: () -> Unit, onError: (String?) -> Unit) {
         viewModelScope.launch {
             runCatching { repository.addChannelMember(channelId, email) }
@@ -237,6 +248,10 @@ class ChatActivity : AppCompatActivity() {
         binding.toolbar.setNavigationIcon(R.drawable.ic_chat_back)
         binding.toolbar.setNavigationContentDescription(R.string.chat_back)
         binding.toolbar.setNavigationOnClickListener { finish() }
+        binding.toolbar.menu.add(R.string.chat_search).setOnMenuItemClickListener {
+            showSearch()
+            true
+        }
         if (intent.getBooleanExtra(EXTRA_MANAGE_MEMBERS, false)) {
             binding.toolbar.menu.add(R.string.chat_add_member).setOnMenuItemClickListener {
                 showAddMember()
@@ -333,6 +348,65 @@ class ChatActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setItems(actions.map { it.first }.toTypedArray()) { _, index -> actions[index].second() }
             .show()
+    }
+
+    private fun showSearch() {
+        val input = EditText(this).apply {
+            hint = getString(R.string.chat_search_hint)
+            filters = arrayOf(InputFilter.LengthFilter(120))
+            setSingleLine()
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.chat_search)
+            .setView(input)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.chat_search, null)
+            .show()
+        val search = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+        search.setOnClickListener {
+            val query = input.text.toString().trim()
+            if (query.isBlank()) {
+                input.error = getString(R.string.chat_search_hint)
+                return@setOnClickListener
+            }
+            search.isEnabled = false
+            viewModel.search(query, { results ->
+                if (dialog.isShowing) {
+                    dialog.dismiss()
+                    showSearchResults(results.asReversed())
+                }
+            }, { error ->
+                input.error = error ?: getString(R.string.chat_search_error)
+                search.isEnabled = true
+            })
+        }
+    }
+
+    private fun showSearchResults(results: List<MessageResponse>) {
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.chat_search_results)
+            .setNegativeButton(R.string.cancel, null)
+        if (results.isEmpty()) {
+            dialog.setMessage(R.string.chat_search_empty)
+        } else {
+            dialog.setItems(results.map { replyPreview(it) }.toTypedArray()) { _, index ->
+                val message = results[index]
+                if (adapter.currentList.any { it.message.id == message.id }) {
+                    jumpTo(message.id)
+                } else {
+                    val details = AlertDialog.Builder(this)
+                        .setTitle(message.authorName)
+                        .setMessage(listOf(message.body, message.attachments.joinToString("\n") { it.fileName })
+                            .filter { it.isNotBlank() }.joinToString("\n\n"))
+                        .setNegativeButton(R.string.cancel, null)
+                    if (message.attachments.isNotEmpty()) {
+                        details.setPositiveButton(R.string.chat_download) { _, _ -> download(message) }
+                    }
+                    details.show()
+                }
+            }
+        }
+        dialog.show()
     }
 
     private fun showAddMember() {

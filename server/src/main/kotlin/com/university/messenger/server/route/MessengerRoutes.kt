@@ -55,7 +55,8 @@ fun Route.channelRoutes(context: AppContext) {
         get("/{id}/messages") {
             val actor = call.account(context)
             val limit = call.request.queryParameters["limit"]?.toIntOrNull() ?: 100
-            val messages = context.messages.history(actor, call.pathId("id"), limit)
+            val query = call.request.queryParameters["q"].orEmpty()
+            val messages = context.messages.history(actor, call.pathId("id"), limit, query)
             call.respond(messages.map { it.toResponse() })
         }
         post("/{id}/messages") {

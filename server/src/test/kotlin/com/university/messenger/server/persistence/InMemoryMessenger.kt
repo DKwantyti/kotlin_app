@@ -198,9 +198,14 @@ class InMemoryMessenger : UserRepository, ChannelRepository, MessageRepository {
         return named(message)
     }
 
-    override fun history(channelId: UUID, limit: Int): List<Message> {
+    override fun history(channelId: UUID, limit: Int, query: String): List<Message> {
         return messages
             .filter { it.channelId == channelId && !it.isDeleted() }
+            .filter { message ->
+                message.body.contains(query, ignoreCase = true) || message.attachments.any {
+                    !it.isDeleted() && it.originalName.contains(query, ignoreCase = true)
+                }
+            }
             .sortedBy { it.createdAt }
             .takeLast(limit)
             .map { named(it) }

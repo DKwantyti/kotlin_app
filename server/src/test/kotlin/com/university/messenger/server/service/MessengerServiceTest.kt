@@ -64,6 +64,20 @@ class MessengerServiceTest {
     }
 
     @Test
+    fun searchMatchesVisibleMessagesForMembersOnly() {
+        val owner = context.auth.registerStudent("owner@uni.local", "Haslo123", "Owner").account
+        val outsider = context.auth.registerStudent("outsider@uni.local", "Haslo123", "Outsider").account
+        val group = context.channels.createGroup(owner, "Course lab", null)
+        val visible = context.messages.post(owner, group.id, "Solution is 100% ready")
+        val hidden = context.messages.post(owner, group.id, "Old 100% ready solution")
+        context.messages.delete(owner, hidden.id, DeletionMode.SOFT)
+        assertEquals(listOf(visible.id), context.messages.history(owner, group.id, 100, "% READY").map { it.id })
+        assertThrows<AppException.Forbidden> {
+            context.messages.history(outsider, group.id, 100, "solution")
+        }
+    }
+
+    @Test
     fun onlyGroupOwnerCanAddMembers() {
         val owner = context.auth.registerStudent("owner@uni.local", "Haslo123", "Owner").account
         val member = context.auth.registerStudent("member@uni.local", "Haslo123", "Member").account
