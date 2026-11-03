@@ -3,6 +3,7 @@ package com.university.messenger.server.route
 import com.university.messenger.domain.api.CreateGroupRequest
 import com.university.messenger.domain.api.EditMessageRequest
 import com.university.messenger.domain.api.PostMessageRequest
+import com.university.messenger.domain.api.ReactionRequest
 import com.university.messenger.server.AppContext
 import com.university.messenger.server.AppException
 import com.university.messenger.server.toResponse
@@ -53,7 +54,7 @@ fun Route.channelRoutes(context: AppContext) {
         post("/{id}/messages") {
             val actor = call.account(context)
             val request = call.receive<PostMessageRequest>()
-            val message = context.messages.post(actor, call.pathId("id"), request.body)
+            val message = context.messages.post(actor, call.pathId("id"), request.body, request.replyToId)
             call.respond(HttpStatusCode.Created, message.toResponse())
             context.live.message(message.channelId, message.toResponse())
         }
@@ -69,6 +70,7 @@ fun Route.channelRoutes(context: AppContext) {
                     sizeHint = upload.sizeHint,
                     body = upload.body,
                     source = source,
+                    replyToId = upload.replyToId,
                 )
                 call.respond(HttpStatusCode.Created, message.toResponse())
                 context.live.message(channelId, message.toResponse())
@@ -104,6 +106,13 @@ fun Route.channelRoutes(context: AppContext) {
 }
 
 fun Route.messageRoutes(context: AppContext) {
+    patch("/api/messages/{id}/reaction") {
+        val actor = call.account(context)
+        val request = call.receive<ReactionRequest>()
+        val message = context.messages.react(actor, call.pathId("id"), request.emoji)
+        context.live.message(message.channelId, message.toResponse())
+        call.respond(message.toResponse())
+    }
     patch("/api/messages/{id}") {
         val actor = call.account(context)
         val request = call.receive<EditMessageRequest>()
@@ -138,16 +147,22 @@ private data class IncomingUpload(
     val sizeHint: Long?,
     val body: String,
     val stream: InputStream,
+    val replyToId: String?,
 )
 
 private suspend fun readUpload(multipart: io.ktor.http.content.MultiPartData): IncomingUpload {
     var body = ""
+    var replyToId: String? = null
     var fileName: String? = null
     var sizeHint: Long? = null
     var stream: InputStream? = null
     multipart.forEachPart { part ->
         when (part) {
-            is PartData.FormItem -> if (part.name == "body") body = part.value
+            is PartData.FormItem -> when (part.name) {
+                "body" -> body = part.value
+                "replyToId" -> replyToId = part.value
+                else -> Unit
+            }
             is PartData.FileItem -> {
                 fileName = part.originalFileName ?: "file"
                 sizeHint = part.headers[HttpHeaders.ContentLength]?.toLongOrNull()
@@ -161,6 +176,7 @@ private suspend fun readUpload(multipart: io.ktor.http.content.MultiPartData): I
         fileName = fileName ?: throw AppException.BadRequest("Missing file"),
         sizeHint = sizeHint,
         body = body,
+        replyToId = replyToId,
         stream = stream ?: throw AppException.BadRequest("Missing file"),
     )
 }

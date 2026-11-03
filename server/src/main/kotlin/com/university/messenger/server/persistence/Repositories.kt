@@ -51,7 +51,10 @@ interface MessageRepository {
         body: String,
         attachment: NewAttachment?,
         studentItem: Boolean,
+        replyToId: UUID? = null,
     ): Message
+
+    fun setReaction(id: UUID, userId: UUID, emoji: String?): Message?
 
     fun history(channelId: UUID, limit: Int): List<Message>
     fun findMessage(id: UUID): Message?

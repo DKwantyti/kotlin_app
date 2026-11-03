@@ -15,14 +15,15 @@ class PostgresMessageRepository : MessageRepository {
         body: String,
         attachment: NewAttachment?,
         studentItem: Boolean,
+        replyToId: UUID?,
     ): Message {
         val messageId = UUID.randomUUID()
         val now = Instant.now()
         DatabaseFactory.transaction { sql ->
             sql.update(
                 """
-                INSERT INTO messages (id, channel_id, author_id, body, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO messages (id, channel_id, author_id, body, created_at, updated_at, reply_to_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """.trimIndent(),
                 messageId,
                 channelId,
@@ -30,6 +31,7 @@ class PostgresMessageRepository : MessageRepository {
                 body,
                 now,
                 now,
+                replyToId,
             )
             if (attachment != null) {
                 sql.update(
@@ -70,7 +72,7 @@ class PostgresMessageRepository : MessageRepository {
             val headers = sql.query(
                 """
                 SELECT m.id, m.channel_id, m.author_id, u.display_name, m.body,
-                       m.created_at, m.updated_at, m.deleted_at
+                       m.created_at, m.updated_at, m.deleted_at, m.reply_to_id
                 FROM messages m
                 JOIN users u ON u.id = m.author_id
                 WHERE m.channel_id = ? AND m.deleted_at IS NULL
@@ -81,7 +83,8 @@ class PostgresMessageRepository : MessageRepository {
                 limit,
             ) { it.toHeader() }.asReversed()
             val attachments = loadAttachments(sql, headers.map { it.id })
-            headers.map { it.toMessage(attachments[it.id].orEmpty()) }
+            val reactions = loadReactions(sql, headers.map { it.id })
+            headers.map { it.toMessage(attachments[it.id].orEmpty(), reactions[it.id].orEmpty()) }
         }
     }
 
@@ -90,15 +93,50 @@ class PostgresMessageRepository : MessageRepository {
             val header = sql.one(
                 """
                 SELECT m.id, m.channel_id, m.author_id, u.display_name, m.body,
-                       m.created_at, m.updated_at, m.deleted_at
+                       m.created_at, m.updated_at, m.deleted_at, m.reply_to_id
                 FROM messages m
                 JOIN users u ON u.id = m.author_id
                 WHERE m.id = ?
                 """.trimIndent(),
                 id,
             ) { it.toHeader() } ?: return@transaction null
-            header.toMessage(loadAttachments(sql, listOf(id))[id].orEmpty())
+            header.toMessage(
+                loadAttachments(sql, listOf(id))[id].orEmpty(),
+                loadReactions(sql, listOf(id))[id].orEmpty(),
+            )
         }
+    }
+
+    override fun setReaction(id: UUID, userId: UUID, emoji: String?): Message? {
+        val found = DatabaseFactory.transaction { sql ->
+            sql.one("SELECT id FROM messages WHERE id = ? AND deleted_at IS NULL FOR UPDATE", id) {
+                it.uuid("id")
+            } ?: return@transaction false
+            if (emoji == null) {
+                sql.update("DELETE FROM message_reactions WHERE message_id = ? AND user_id = ?", id, userId)
+            } else {
+                sql.update(
+                    """
+                    INSERT INTO message_reactions (message_id, user_id, emoji) VALUES (?, ?, ?)
+                    ON CONFLICT (message_id, user_id) DO UPDATE SET emoji = EXCLUDED.emoji
+                    """.trimIndent(),
+                    id, userId, emoji,
+                )
+            }
+            true
+        }
+        return if (found) findMessage(id)?.takeUnless { it.isDeleted() } else null
+    }
+
+    private fun loadReactions(sql: Sql, ids: List<UUID>): Map<UUID, Map<UUID, String>> {
+        if (ids.isEmpty()) return emptyMap()
+        val placeholders = ids.joinToString(",") { "?" }
+        return sql.query(
+            "SELECT message_id, user_id, emoji FROM message_reactions WHERE message_id IN ($placeholders)",
+            *ids.toTypedArray(),
+        ) { it.uuid("message_id") to (it.uuid("user_id") to it.getString("emoji")) }
+            .groupBy({ it.first }, { it.second })
+            .mapValues { it.value.toMap() }
     }
 
     override fun edit(id: UUID, body: String): Message {
@@ -218,9 +256,10 @@ private data class MessageHeader(
     val createdAt: Instant,
     val updatedAt: Instant,
     val deletedAt: Instant?,
+    val replyToId: UUID?,
 ) {
-    fun toMessage(attachments: List<Attachment>): Message {
-        return Message(id, channelId, authorId, authorName, body, createdAt, updatedAt, attachments, deletedAt)
+    fun toMessage(attachments: List<Attachment>, reactions: Map<UUID, String>): Message {
+        return Message(id, channelId, authorId, authorName, body, createdAt, updatedAt, attachments, deletedAt, replyToId, reactions)
     }
 }
 
@@ -234,6 +273,7 @@ private fun ResultSet.toHeader(): MessageHeader {
         createdAt = instant("created_at") ?: Instant.EPOCH,
         updatedAt = instant("updated_at") ?: Instant.EPOCH,
         deletedAt = instant("deleted_at"),
+        replyToId = getObject("reply_to_id", UUID::class.java),
     )
 }
 

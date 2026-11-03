@@ -24,7 +24,13 @@ data class CreateGroupRequest(
 @Serializable
 data class PostMessageRequest(
     val body: String,
+    val replyToId: String? = null,
 )
+
+@Serializable
+data class ReactionRequest(val emoji: String?)
+
+val messageReactionEmoji = listOf("👍", "❤️", "🔥", "😂", "😮", "😢")
 
 @Serializable
 data class EditMessageRequest(
@@ -78,6 +84,8 @@ data class MessageResponse(
     val createdAt: String,
     val updatedAt: String,
     val attachments: List<AttachmentResponse>,
+    val replyToId: String? = null,
+    val reactions: Map<String, String> = emptyMap(),
 )
 
 @Serializable

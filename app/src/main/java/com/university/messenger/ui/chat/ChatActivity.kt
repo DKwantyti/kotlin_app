@@ -1,6 +1,27 @@
 package com.university.messenger.ui.chat
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.res.ColorStateList
+import android.graphics.Color
 import android.net.Uri
+import android.view.Gravity
+import android.view.inputmethod.InputMethodManager
+import android.widget.FrameLayout
+import androidx.appcompat.app.AlertDialog
+import androidx.core.view.isVisible
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
+import androidx.core.view.WindowCompat
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
+import com.google.android.material.chip.Chip
+import com.university.messenger.data.SessionStore
+import com.university.messenger.domain.api.messageReactionEmoji
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import android.os.Bundle
 import android.provider.OpenableColumns
 import android.view.LayoutInflater
@@ -29,6 +50,7 @@ import com.university.messenger.domain.policy.UploadDecision
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.InputStream
@@ -46,6 +68,9 @@ class ChatViewModel(
     private val stateHolder = MutableLiveData(ChatState())
     val state: LiveData<ChatState> = stateHolder
     private val policy = FileUploadPolicy()
+    var replyTarget: MessageResponse? = null
+    private var refreshJob: Job? = null
+    private var refreshPending = false
 
     init {
         viewModelScope.launch {
@@ -63,33 +88,66 @@ class ChatViewModel(
     }
 
     fun refresh() {
-        viewModelScope.launch {
-            runCatching { repository.messages(channelId) }
-                .onSuccess { stateHolder.value = ChatState(messages = it) }
-                .onFailure { stateHolder.value = ChatState(error = it.message) }
+        refreshPending = true
+        if (refreshJob?.isActive == true) return
+        refreshJob = viewModelScope.launch {
+            while (refreshPending) {
+                refreshPending = false
+                runCatching { repository.messages(channelId) }
+                    .onSuccess { history ->
+                        if (!refreshPending) stateHolder.value = ChatState(messages = history)
+                    }
+                    .onFailure { showError(it) }
+            }
         }
     }
 
-    fun send(body: String) {
+    fun send(body: String, replyToId: String?, onSent: () -> Unit) {
         val text = body.trim()
         if (text.isEmpty()) return
         viewModelScope.launch {
-            runCatching { repository.sendMessage(channelId, text) }
-                .onSuccess { refresh() }
-                .onFailure { stateHolder.value = stateHolder.value?.copy(error = it.message) }
+            runCatching { repository.sendMessage(channelId, text, replyToId) }
+                .onSuccess {
+                    onSent()
+                    refresh()
+                }
+                .onFailure { showError(it) }
         }
     }
 
-    fun sendFile(name: String, size: Long, caption: String, open: () -> InputStream) {
+    fun react(message: MessageResponse, emoji: String) {
+        val selected = message.reactions[SessionStore.userId]
+        viewModelScope.launch {
+            runCatching { repository.react(message.id, emoji.takeUnless { it == selected }) }
+                .onSuccess { refresh() }
+                .onFailure { showError(it) }
+        }
+    }
+
+    private fun showError(error: Throwable) {
+        if (error is CancellationException) throw error
+        stateHolder.value = stateHolder.value?.copy(error = error.message)
+    }
+
+    fun sendFile(
+        name: String,
+        size: Long,
+        caption: String,
+        replyToId: String?,
+        onSent: () -> Unit,
+        open: () -> InputStream,
+    ) {
         when (val decision = policy.evaluate(name, size.takeIf { it > 0L })) {
             is UploadDecision.Rejected -> stateHolder.value = stateHolder.value?.copy(error = decision.reason)
             UploadDecision.Accepted -> viewModelScope.launch {
                 runCatching {
                     open().use { source ->
-                        repository.upload(channelId, name, size, caption, source)
+                        repository.upload(channelId, name, size, caption, source, replyToId)
                     }
-                }.onSuccess { refresh() }
-                    .onFailure { stateHolder.value = stateHolder.value?.copy(error = it.message) }
+                }.onSuccess {
+                    onSent()
+                    refresh()
+                }.onFailure { showError(it) }
             }
         }
     }
@@ -104,16 +162,7 @@ class ChatViewModel(
     }
 
     private fun applyLive(event: LiveEvent) {
-        val current = stateHolder.value ?: ChatState()
-        val next = when (event.type) {
-            "deleted" -> current.messages.filterNot { it.id == event.messageId }
-            "message" -> {
-                val message = event.message ?: return
-                (current.messages.filterNot { it.id == message.id } + message).sortedBy { it.createdAt }
-            }
-            else -> return
-        }
-        stateHolder.postValue(current.copy(messages = next, error = null))
+        if (event.type in setOf("ready", "message", "deleted")) refresh()
     }
 }
 
@@ -128,8 +177,10 @@ class ChatActivity : AppCompatActivity() {
     private val channelId: String by lazy { intent.getStringExtra(EXTRA_CHANNEL_ID).orEmpty() }
     private val viewModel: ChatViewModel by viewModels { ChatViewModelFactory(channelId) }
     private lateinit var binding: ActivityChatBinding
-    private val adapter = MessageAdapter { message ->
-        val file = message.attachments.firstOrNull() ?: return@MessageAdapter
+    private val adapter by lazy { MessageAdapter(::download, ::showActions, ::jumpTo, viewModel::react) }
+
+    private fun download(message: MessageResponse) {
+        val file = message.attachments.firstOrNull() ?: return
         viewModel.download(file.id, file.fileName, cacheDir) { saved ->
             Toast.makeText(this, getString(R.string.saved_file) + ": " + saved.name, Toast.LENGTH_SHORT).show()
         }
@@ -141,21 +192,36 @@ class ChatActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityChatBinding.inflate(layoutInflater)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         setContentView(binding.root)
-        binding.title.text = intent.getStringExtra(EXTRA_TITLE).orEmpty()
-        binding.messageList.layoutManager = LinearLayoutManager(this)
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, insets ->
+            val padding = insets.getInsets(WindowInsetsCompat.Type.systemBars() or
+                WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.ime())
+            view.updatePadding(padding.left, padding.top, padding.right, padding.bottom)
+            insets
+        }
+        binding.toolbar.title = intent.getStringExtra(EXTRA_TITLE).orEmpty()
+        binding.toolbar.setNavigationIcon(R.drawable.ic_chat_back)
+        binding.toolbar.setNavigationContentDescription(R.string.chat_back)
+        binding.toolbar.setNavigationOnClickListener { finish() }
+        binding.messageList.layoutManager = LinearLayoutManager(this).apply { stackFromEnd = true }
+        binding.cancelReply.setOnClickListener { selectReply(null) }
+        selectReply(viewModel.replyTarget)
         binding.messageList.adapter = adapter
         binding.sendButton.setOnClickListener {
-            viewModel.send(binding.messageInput.text.toString())
-            binding.messageInput.setText("")
+            val draft = binding.messageInput.text.toString()
+            val target = viewModel.replyTarget
+            viewModel.send(draft, target?.id) { clearDraft(draft, target) }
         }
         binding.attachButton.setOnClickListener { pickFile.launch("*/*") }
         viewModel.state.observe(this) { state ->
-            adapter.submit(state.messages)
+            val atBottom = !binding.messageList.canScrollVertically(1)
+            adapter.submit(state.messages) {
+                if (atBottom && adapter.itemCount > 0) binding.messageList.scrollToPosition(adapter.itemCount - 1)
+            }
             binding.emptyText.visibility = if (state.messages.isEmpty()) View.VISIBLE else View.GONE
             binding.errorText.visibility = if (state.error == null) View.GONE else View.VISIBLE
             binding.errorText.text = state.error
-            if (state.messages.isNotEmpty()) binding.messageList.scrollToPosition(state.messages.lastIndex)
         }
         viewModel.refresh()
     }
@@ -172,10 +238,58 @@ class ChatActivity : AppCompatActivity() {
                 if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) size = cursor.getLong(sizeIndex)
             }
         }
-        viewModel.sendFile(name, size, caption) {
+        val target = viewModel.replyTarget
+        viewModel.sendFile(name, size, caption, target?.id, { clearDraft(caption, target) }) {
             contentResolver.openInputStream(uri) ?: error("Cannot open file")
         }
+    }
+
+    private fun clearDraft(text: String, target: MessageResponse?) {
+        if (binding.messageInput.text.toString() != text || viewModel.replyTarget != target) return
         binding.messageInput.setText("")
+        selectReply(null)
+    }
+
+    private fun selectReply(message: MessageResponse?) {
+        viewModel.replyTarget = message
+        binding.replyBar.isVisible = message != null
+        binding.replyDraft.text = message?.let { replyPreview(it) }
+    }
+
+    private fun jumpTo(id: String) {
+        val position = adapter.currentList.indexOfFirst { it.message.id == id }
+        if (position >= 0) binding.messageList.smoothScrollToPosition(position)
+        else Toast.makeText(this, R.string.chat_reply_unavailable, Toast.LENGTH_SHORT).show()
+    }
+
+    private fun showActions(message: MessageResponse) {
+        val actions = mutableListOf(
+            getString(R.string.chat_reply) to {
+                selectReply(message)
+                binding.messageInput.requestFocus()
+                getSystemService(InputMethodManager::class.java)
+                    .showSoftInput(binding.messageInput, InputMethodManager.SHOW_IMPLICIT)
+                Unit
+            },
+            getString(R.string.chat_react) to {
+                val selected = message.reactions[SessionStore.userId]
+                val options = messageReactionEmoji.map { if (it == selected) "$it ✓" else it }
+                AlertDialog.Builder(this)
+                    .setTitle(R.string.chat_react)
+                    .setItems(options.toTypedArray()) { _, index -> viewModel.react(message, messageReactionEmoji[index]) }
+                    .show()
+                Unit
+            },
+        )
+        if (message.body.isNotBlank()) {
+            actions += getString(R.string.chat_copy) to {
+                getSystemService(ClipboardManager::class.java)
+                    .setPrimaryClip(ClipData.newPlainText(getString(R.string.message_hint), message.body))
+            }
+        }
+        AlertDialog.Builder(this)
+            .setItems(actions.map { it.first }.toTypedArray()) { _, index -> actions[index].second() }
+            .show()
     }
 
     companion object {
@@ -184,15 +298,27 @@ class ChatActivity : AppCompatActivity() {
     }
 }
 
-private class MessageAdapter(
-    private val onClick: (MessageResponse) -> Unit,
-) : RecyclerView.Adapter<MessageAdapter.Holder>() {
-    private val items = mutableListOf<MessageResponse>()
+private fun android.content.Context.replyPreview(message: MessageResponse): String {
+    val excerpt = message.body.ifBlank { message.attachments.firstOrNull()?.fileName.orEmpty() }
+    return getString(R.string.chat_reply_preview, message.authorName, excerpt.take(160))
+}
 
-    fun submit(data: List<MessageResponse>) {
-        items.clear()
-        items.addAll(data)
-        notifyDataSetChanged()
+private data class MessageRow(val message: MessageResponse, val reply: MessageResponse?)
+
+private class MessageAdapter(
+    private val onDownload: (MessageResponse) -> Unit,
+    private val onActions: (MessageResponse) -> Unit,
+    private val onQuote: (String) -> Unit,
+    private val onReact: (MessageResponse, String) -> Unit,
+) : ListAdapter<MessageRow, MessageAdapter.Holder>(object : DiffUtil.ItemCallback<MessageRow>() {
+    override fun areItemsTheSame(old: MessageRow, new: MessageRow) = old.message.id == new.message.id
+    override fun areContentsTheSame(old: MessageRow, new: MessageRow) = old == new
+}) {
+    private val clock = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
+
+    fun submit(data: List<MessageResponse>, onCommitted: () -> Unit) {
+        val byId = data.associateBy { it.id }
+        submitList(data.map { MessageRow(it, byId[it.replyToId]) }) { onCommitted() }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
@@ -201,17 +327,54 @@ private class MessageAdapter(
     }
 
     override fun onBindViewHolder(holder: Holder, position: Int) {
-        val item = items[position]
-        holder.binding.author.text = item.authorName
-        holder.binding.body.text = item.body
-        val files = item.attachments.joinToString { it.fileName }
-        holder.binding.meta.text = listOf(item.createdAt.take(16).replace('T', ' '), files)
-            .filter { it.isNotBlank() }
-            .joinToString(" · ")
-        holder.binding.root.setOnClickListener { onClick(item) }
-    }
+        val (message, reply) = getItem(position)
+        val binding = holder.binding
+        val context = binding.root.context
+        val own = message.authorId == SessionStore.userId
+        val bubble = binding.bubble
+        val gutter = (48 * context.resources.displayMetrics.density).toInt()
+        bubble.layoutParams = (bubble.layoutParams as FrameLayout.LayoutParams).apply {
+            gravity = if (own) Gravity.END else Gravity.START
+            marginStart = if (own) gutter else 0
+            marginEnd = if (own) 0 else gutter
+        }
+        bubble.setBackgroundResource(if (own) R.drawable.chat_outgoing else R.drawable.chat_incoming)
+        val actions = View.OnLongClickListener {
+            onActions(message)
+            true
+        }
+        bubble.setOnClickListener { onActions(message) }
+        bubble.setOnLongClickListener(actions)
+        binding.body.setOnLongClickListener(actions)
+        binding.files.setOnLongClickListener(actions)
+        binding.quote.setOnLongClickListener(actions)
+        binding.author.isVisible = !own
+        binding.author.text = message.authorName
+        binding.body.isVisible = message.body.isNotBlank()
+        binding.body.text = message.body
+        binding.quote.isVisible = message.replyToId != null
+        binding.quote.text = reply?.let { context.replyPreview(it) } ?: context.getString(R.string.chat_reply_unavailable)
+        binding.quote.setOnClickListener { message.replyToId?.let(onQuote) }
+        binding.files.isVisible = message.attachments.isNotEmpty()
+        binding.files.text = message.attachments.joinToString("\n") { "📎 ${it.fileName}" }
+        binding.files.setOnClickListener { onDownload(message) }
+        val time = runCatching { clock.format(Instant.parse(message.createdAt)) }
+            .getOrDefault(message.createdAt.take(16).replace('T', ' '))
+        binding.meta.text = if (message.createdAt == message.updatedAt) time else context.getString(R.string.chat_edited, time)
 
-    override fun getItemCount(): Int = items.size
+        val counts = message.reactions.values.groupingBy { it }.eachCount()
+        binding.reactions.removeAllViews()
+        binding.reactions.isVisible = counts.isNotEmpty()
+        for ((emoji, count) in counts.entries.sortedBy { messageReactionEmoji.indexOf(it.key) }) {
+            val selected = message.reactions[SessionStore.userId] == emoji
+            binding.reactions.addView(Chip(context).apply {
+                text = "$emoji $count"
+                isSelected = selected
+                chipBackgroundColor = ColorStateList.valueOf(Color.parseColor(if (selected) "#A8D8F3" else "#EDF3F7"))
+                setOnClickListener { onReact(message, emoji) }
+            })
+        }
+    }
 
     class Holder(val binding: ItemMessageBinding) : RecyclerView.ViewHolder(binding.root)
 }

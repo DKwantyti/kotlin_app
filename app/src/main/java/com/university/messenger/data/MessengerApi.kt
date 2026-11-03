@@ -16,6 +16,8 @@ import io.ktor.client.request.forms.submitFormWithBinaryData
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
+import io.ktor.client.request.patch
+import com.university.messenger.domain.api.ReactionRequest
 import io.ktor.client.request.prepareGet
 import io.ktor.client.request.setBody
 import io.ktor.client.plugins.websocket.webSocket
@@ -76,11 +78,19 @@ class MessengerApi(private val client: io.ktor.client.HttpClient = ApiClient.htt
         return client.get(url("/api/channels/$channelId/messages")) { auth() }.parse()
     }
 
-    suspend fun sendMessage(channelId: String, body: String): MessageResponse {
+    suspend fun sendMessage(channelId: String, body: String, replyToId: String?): MessageResponse {
         return client.post(url("/api/channels/$channelId/messages")) {
             auth()
             contentType(ContentType.Application.Json)
-            setBody(PostMessageRequest(body))
+            setBody(PostMessageRequest(body, replyToId))
+        }.parse()
+    }
+
+    suspend fun react(messageId: String, emoji: String?): MessageResponse {
+        return client.patch(url("/api/messages/$messageId/reaction")) {
+            auth()
+            contentType(ContentType.Application.Json)
+            setBody(ReactionRequest(emoji))
         }.parse()
     }
 
@@ -90,12 +100,14 @@ class MessengerApi(private val client: io.ktor.client.HttpClient = ApiClient.htt
         size: Long,
         body: String,
         source: InputStream,
+        replyToId: String?,
     ): MessageResponse {
         val safeName = fileName.replace("\"", "")
         val response = client.submitFormWithBinaryData(
             url = url("/api/channels/$channelId/files"),
             formData = formData {
                 append("body", body)
+                if (replyToId != null) append("replyToId", replyToId)
                 appendInput(
                     key = "file",
                     headers = Headers.build {

@@ -125,6 +125,8 @@ fun Message.toResponse(): MessageResponse {
         body = body,
         createdAt = createdAt.toString(),
         updatedAt = updatedAt.toString(),
+        replyToId = replyToId?.toString(),
+        reactions = reactions.mapKeys { it.key.toString() },
         attachments = attachments.filterNot { it.isDeleted() }.map { attachment ->
             AttachmentResponse(
                 id = attachment.id.toString(),

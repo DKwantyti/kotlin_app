@@ -39,6 +39,8 @@ data class Message(
     val updatedAt: Instant,
     val attachments: List<Attachment>,
     override val deletedAt: Instant?,
+    val replyToId: UUID? = null,
+    val reactions: Map<UUID, String> = emptyMap(),
 ) : Identifiable, SoftDeletable
 
 data class StudentItem(

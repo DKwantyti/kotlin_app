@@ -1,5 +1,6 @@
 package com.university.messenger.server.service
 
+import com.university.messenger.domain.api.messageReactionEmoji
 import com.university.messenger.domain.model.Account
 import com.university.messenger.domain.model.DeletionMode
 import com.university.messenger.domain.model.Message
@@ -33,13 +34,31 @@ class MessageService(
         return messages.history(channelId, limit.coerceIn(1, 200))
     }
 
-    fun post(actor: Account, channelId: UUID, body: String): Message {
+    fun post(actor: Account, channelId: UUID, body: String, replyToId: String? = null): Message {
         actor.ensureActive()
         requireMember(actor, channelId)
         val trimmed = body.trim()
         if (trimmed.isEmpty()) throw AppException.BadRequest("Message cannot be empty")
         if (trimmed.length > MAX_BODY) throw AppException.BadRequest("Message can be at most 4000 characters")
-        return messages.append(channelId, actor, trimmed, null, false)
+        return messages.append(channelId, actor, trimmed, null, false, replyTarget(channelId, replyToId))
+    }
+
+    fun react(actor: Account, messageId: UUID, emoji: String?): Message {
+        actor.ensureActive()
+        val message = visibleMessage(messageId)
+        requireMember(actor, message.channelId)
+        if (emoji != null && emoji !in messageReactionEmoji) throw AppException.BadRequest("Invalid reaction")
+        return messages.setReaction(messageId, actor.id, emoji)
+            ?: throw AppException.NotFound("Message not found")
+    }
+
+    private fun replyTarget(channelId: UUID, rawId: String?): UUID? {
+        if (rawId == null) return null
+        val id = runCatching { UUID.fromString(rawId) }.getOrNull()
+            ?: throw AppException.BadRequest("Invalid reply target")
+        val target = visibleMessage(id)
+        if (target.channelId != channelId) throw AppException.NotFound("Message not found")
+        return id
     }
 
     fun edit(actor: Account, messageId: UUID, body: String): Message {
@@ -76,9 +95,11 @@ class MessageService(
         sizeHint: Long?,
         body: String,
         source: InputStream,
+        replyToId: String? = null,
     ): Message {
         actor.ensureActive()
         requireMember(actor, channelId)
+        val replyId = replyTarget(channelId, replyToId)
         val knownSize = sizeHint?.takeIf { it > 0L }
         rejectIfNeeded(policy.evaluate(fileName, knownSize))
         val trimmed = body.trim()
@@ -99,6 +120,7 @@ class MessageService(
                 body = trimmed,
                 attachment = attachment,
                 studentItem = actor is StudentAccount,
+                replyToId = replyId,
             )
         } catch (error: Exception) {
             files.delete(blob.storedName)

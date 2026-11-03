@@ -33,19 +33,29 @@ object SessionStore {
             prefs.edit().putString(NAME, value).apply()
         }
 
+    var userId: String?
+        get() = prefs.getString("user_id", null) ?: token?.let { value ->
+            runCatching {
+                val payload = android.util.Base64.decode(value.split('.')[1], android.util.Base64.URL_SAFE)
+                org.json.JSONObject(String(payload, Charsets.UTF_8)).getString("sub")
+            }.getOrNull()
+        }
+        private set(value) { prefs.edit().putString("user_id", value).apply() }
+
     var baseUrl: String
         get() = prefs.getString(BASE_URL, null)?.takeIf { it.isNotBlank() } ?: "http://10.0.2.2:8080"
         set(value) {
             prefs.edit().putString(BASE_URL, value.trim().trimEnd('/')).apply()
         }
 
-    fun saveLogin(token: String, role: String, displayName: String) {
+    fun saveLogin(token: String, role: String, displayName: String, userId: String) {
         this.token = token
         this.role = role
         this.displayName = displayName
+        this.userId = userId
     }
 
     fun clearSession() {
-        prefs.edit().remove(TOKEN).remove(ROLE).remove(NAME).apply()
+        prefs.edit().remove(TOKEN).remove(ROLE).remove(NAME).remove("user_id").apply()
     }
 }

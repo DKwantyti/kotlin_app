@@ -125,6 +125,7 @@ class InMemoryMessenger : UserRepository, ChannelRepository, MessageRepository {
         body: String,
         attachment: NewAttachment?,
         studentItem: Boolean,
+        replyToId: UUID?,
     ): Message {
         val now = Instant.now()
         val messageId = UUID.randomUUID()
@@ -156,6 +157,7 @@ class InMemoryMessenger : UserRepository, ChannelRepository, MessageRepository {
             updatedAt = now,
             attachments = attachments,
             deletedAt = null,
+            replyToId = replyToId,
         )
         messages += message
         return named(message)
@@ -170,6 +172,14 @@ class InMemoryMessenger : UserRepository, ChannelRepository, MessageRepository {
     }
 
     override fun findMessage(id: UUID): Message? = messages.find { it.id == id }?.let(::named)
+
+    override fun setReaction(id: UUID, userId: UUID, emoji: String?): Message? {
+        val index = messages.indexOfFirst { it.id == id && !it.isDeleted() }
+        if (index < 0) return null
+        val message = messages[index]
+        val reactions = if (emoji == null) message.reactions - userId else message.reactions + (userId to emoji)
+        return message.copy(reactions = reactions).also { messages[index] = it }.let(::named)
+    }
 
     override fun edit(id: UUID, body: String): Message {
         val index = messages.indexOfFirst { it.id == id && !it.isDeleted() }

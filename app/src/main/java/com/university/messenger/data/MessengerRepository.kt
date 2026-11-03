@@ -10,12 +10,12 @@ import java.io.InputStream
 class MessengerRepository(private val api: MessengerApi = MessengerApi()) {
     suspend fun login(email: String, password: String) {
         val response = api.login(email, password)
-        SessionStore.saveLogin(response.token, response.user.role, response.user.displayName)
+        SessionStore.saveLogin(response.token, response.user.role, response.user.displayName, response.user.id)
     }
 
     suspend fun register(email: String, password: String, displayName: String) {
         val response = api.register(email, password, displayName)
-        SessionStore.saveLogin(response.token, response.user.role, response.user.displayName)
+        SessionStore.saveLogin(response.token, response.user.role, response.user.displayName, response.user.id)
     }
 
     suspend fun channels(): List<ChannelResponse> = api.channels()
@@ -28,7 +28,10 @@ class MessengerRepository(private val api: MessengerApi = MessengerApi()) {
 
     suspend fun messages(channelId: String): List<MessageResponse> = api.messages(channelId)
 
-    suspend fun sendMessage(channelId: String, body: String): MessageResponse = api.sendMessage(channelId, body)
+    suspend fun sendMessage(channelId: String, body: String, replyToId: String?): MessageResponse =
+        api.sendMessage(channelId, body, replyToId)
+
+    suspend fun react(messageId: String, emoji: String?) = api.react(messageId, emoji)
 
     suspend fun upload(
         channelId: String,
@@ -36,7 +39,8 @@ class MessengerRepository(private val api: MessengerApi = MessengerApi()) {
         size: Long,
         body: String,
         source: InputStream,
-    ): MessageResponse = api.upload(channelId, fileName, size, body, source)
+        replyToId: String?,
+    ): MessageResponse = api.upload(channelId, fileName, size, body, source, replyToId)
 
     suspend fun download(attachmentId: String, target: File) = api.download(attachmentId, target)
 

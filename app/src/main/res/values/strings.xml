@@ -26,4 +26,12 @@
     <string name="enter_email_password">Enter email and password</string>
     <string name="sign_in_failed">Could not sign in</string>
     <string name="register_failed">Could not register</string>
+    <string name="chat_back">Wróć do rozmów</string>
+    <string name="chat_reply">Odpowiedz</string>
+    <string name="chat_cancel_reply">Anuluj odpowiedź</string>
+    <string name="chat_reply_unavailable">Wiadomość niedostępna</string>
+    <string name="chat_copy">Kopiuj tekst</string>
+    <string name="chat_react">Dodaj reakcję</string>
+    <string name="chat_reply_preview">%1$s\n%2$s</string>
+    <string name="chat_edited">%1$s · edytowano</string>
 </resources>

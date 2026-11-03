@@ -50,6 +50,15 @@ CREATE TABLE IF NOT EXISTS messages (
     deleted_at TIMESTAMPTZ
 );
 
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to_id UUID;
+
+CREATE TABLE IF NOT EXISTS message_reactions (
+    message_id UUID NOT NULL REFERENCES messages (id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    emoji TEXT NOT NULL,
+    PRIMARY KEY (message_id, user_id)
+);
+
 CREATE INDEX IF NOT EXISTS messages_channel_created
     ON messages (channel_id, created_at);
 
