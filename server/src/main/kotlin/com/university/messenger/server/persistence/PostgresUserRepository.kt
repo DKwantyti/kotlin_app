@@ -33,11 +33,70 @@ class PostgresUserRepository : UserRepository {
         val now = Instant.now()
         write {
             DatabaseFactory.transaction { sql ->
-                insertUser(sql, id, email, passwordHash, displayName, "TEACHER", now)
-                sql.update("INSERT INTO teachers (user_id, department) VALUES (?, ?)", id, department)
+                insertTeacher(sql, id, email, passwordHash, displayName, department, now)
             }
         }
         return TeacherAccount(id, email, displayName, department)
+    }
+
+    override fun saveTeacherInvite(invite: TeacherInvite) {
+        DatabaseFactory.transaction { sql ->
+            sql.update(
+                """
+                INSERT INTO teacher_invites (email, department, code_hash, expires_at, attempts_left)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT (email) DO UPDATE SET department = EXCLUDED.department,
+                    code_hash = EXCLUDED.code_hash, expires_at = EXCLUDED.expires_at,
+                    attempts_left = EXCLUDED.attempts_left
+                """.trimIndent(),
+                invite.email, invite.department, invite.codeHash, invite.expiresAt, invite.attemptsLeft,
+            )
+        }
+    }
+
+    override fun redeemTeacherInvite(
+        id: UUID,
+        email: String,
+        hashPassword: () -> String,
+        displayName: String,
+        verify: (String) -> Boolean,
+    ): Account? = write {
+        DatabaseFactory.transaction { sql ->
+            val invite = sql.one(
+                """
+                SELECT department, code_hash, expires_at, attempts_left
+                FROM teacher_invites WHERE email = ? FOR UPDATE
+                """.trimIndent(),
+                email,
+            ) { row ->
+                TeacherInvite(
+                    email, row.getString("department"), row.getString("code_hash"),
+                    checkNotNull(row.instant("expires_at")), row.getInt("attempts_left"),
+                )
+            } ?: return@transaction null
+            val now = Instant.now()
+            if (invite.attemptsLeft <= 0 || !invite.expiresAt.isAfter(now)) return@transaction null
+            if (!verify(invite.codeHash)) {
+                sql.update("UPDATE teacher_invites SET attempts_left = attempts_left - 1 WHERE email = ?", email)
+                return@transaction null
+            }
+            insertTeacher(sql, id, email, hashPassword(), displayName, invite.department, now)
+            sql.update("DELETE FROM teacher_invites WHERE email = ?", email)
+            TeacherAccount(id, email, displayName, invite.department)
+        }
+    }
+
+    private fun insertTeacher(
+        sql: Sql,
+        id: UUID,
+        email: String,
+        passwordHash: String,
+        displayName: String,
+        department: String,
+        now: Instant,
+    ) {
+        insertUser(sql, id, email, passwordHash, displayName, "TEACHER", now)
+        sql.update("INSERT INTO teachers (user_id, department) VALUES (?, ?)", id, department)
     }
 
     override fun findByEmail(email: String): StoredUser? = findOne("WHERE u.email = ?", email)
@@ -103,9 +162,9 @@ class PostgresUserRepository : UserRepository {
         )
     }
 
-    private fun write(block: () -> Unit) {
+    private fun <T> write(block: () -> T): T {
         try {
-            block()
+            return block()
         } catch (error: SQLException) {
             if (error.isUniqueViolation()) throw AppException.Conflict("Email is already taken")
             throw error

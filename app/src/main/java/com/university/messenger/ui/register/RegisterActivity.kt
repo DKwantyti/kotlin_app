@@ -4,12 +4,18 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import androidx.activity.viewModels
+import androidx.core.view.isVisible
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.university.messenger.R
 import com.university.messenger.data.MessengerGraph
 import com.university.messenger.data.MessengerRepository
 import com.university.messenger.data.SessionStore
@@ -23,7 +29,7 @@ class RegisterViewModel(private val repository: MessengerRepository) : ViewModel
     private val stateHolder = MutableLiveData(ScreenState())
     val state: LiveData<ScreenState> = stateHolder
 
-    fun register(email: String, password: String, displayName: String) {
+    fun register(email: String, password: String, displayName: String, teacherCode: String?) {
         val errors = RegistrationRules.studentErrors(email, password, displayName)
         if (errors.isNotEmpty()) {
             stateHolder.value = ScreenState(error = errors.joinToString(". "))
@@ -31,7 +37,10 @@ class RegisterViewModel(private val repository: MessengerRepository) : ViewModel
         }
         viewModelScope.launch {
             stateHolder.value = ScreenState(loading = true)
-            runCatching { repository.register(email.trim(), password, displayName.trim()) }
+            runCatching {
+                if (teacherCode == null) repository.register(email.trim(), password, displayName.trim())
+                else repository.registerTeacher(email.trim(), password, displayName.trim(), teacherCode)
+            }
                 .onSuccess { stateHolder.value = ScreenState(done = true) }
                 .onFailure { stateHolder.value = ScreenState(error = it.message ?: "Could not register") }
         }
@@ -47,28 +56,74 @@ class RegisterViewModelFactory : ViewModelProvider.Factory {
 
 class RegisterActivity : AppCompatActivity() {
     private val viewModel: RegisterViewModel by viewModels { RegisterViewModelFactory() }
+    private lateinit var binding: ActivityRegisterBinding
+    private var confirmingTeacher = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val binding = ActivityRegisterBinding.inflate(layoutInflater)
+        binding = ActivityRegisterBinding.inflate(layoutInflater)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         setContentView(binding.root)
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, insets ->
+            val padding = insets.getInsets(WindowInsetsCompat.Type.systemBars() or
+                WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.ime())
+            view.updatePadding(padding.left, padding.top, padding.right, padding.bottom)
+            insets
+        }
+        binding.teacherAccount.isChecked = savedInstanceState?.getBoolean("teacher_account") == true
+        binding.teacherAccount.setOnCheckedChangeListener { _, checked ->
+            if (!checked) binding.teacherCode.text?.clear()
+            showConfirmation(checked && confirmingTeacher)
+        }
+        showConfirmation(savedInstanceState?.getBoolean("confirming_teacher") == true)
         binding.serverUrl.setText(SessionStore.baseUrl)
         binding.registerButton.setOnClickListener {
             SessionStore.baseUrl = binding.serverUrl.text.toString()
+            val teacher = binding.teacherAccount.isChecked
+            if (teacher && !confirmingTeacher) {
+                showConfirmation(true)
+                binding.teacherCode.requestFocus()
+                return@setOnClickListener
+            }
+            val code = if (teacher) binding.teacherCode.text.toString() else null
+            if (code != null && !code.matches(Regex("[0-9]{6}"))) {
+                binding.teacherCode.error = getString(R.string.teacher_code_error)
+                return@setOnClickListener
+            }
             viewModel.register(
                 binding.email.text.toString(),
                 binding.password.text.toString(),
                 binding.displayName.text.toString(),
+                code,
             )
         }
         viewModel.state.observe(this) { state ->
             binding.errorText.visibility = if (state.error == null) View.GONE else View.VISIBLE
             binding.errorText.text = state.error
             binding.registerButton.isEnabled = !state.loading
+            binding.teacherAccount.isEnabled = !state.loading
             if (state.done) {
                 startActivity(Intent(this, ChannelListActivity::class.java))
                 finish()
             }
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putBoolean("confirming_teacher", confirmingTeacher)
+        outState.putBoolean("teacher_account", binding.teacherAccount.isChecked)
+        super.onSaveInstanceState(outState)
+    }
+
+    private fun showConfirmation(show: Boolean) {
+        confirmingTeacher = show
+        binding.teacherConfirmation.isVisible = show
+        binding.registerButton.setText(
+            when {
+                show -> R.string.verify_teacher
+                binding.teacherAccount.isChecked -> R.string.teacher_continue
+                else -> R.string.register
+            },
+        )
     }
 }

@@ -15,7 +15,7 @@ fun ApplicationCall.account(context: AppContext): Account {
     if (!header.startsWith("Bearer ")) throw AppException.Unauthorized("Missing token")
     val userId = context.tokens.userId(header.removePrefix("Bearer ").trim())
     val stored = context.users.findById(userId) ?: throw AppException.Unauthorized("Session expired")
-    if (stored.account.isDeleted()) throw AppException.Unauthorized("Account is disabled")
+    context.auth.ensureEnabled(stored.account)
     return stored.account
 }
 

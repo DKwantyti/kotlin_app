@@ -2,6 +2,12 @@ package com.university.messenger.server
 
 import com.university.messenger.domain.api.ErrorResponse
 import com.university.messenger.server.config.AppConfig
+import com.university.messenger.server.persistence.DatabaseFactory
+import com.university.messenger.server.persistence.PostgresUserRepository
+import com.university.messenger.server.persistence.SchemaMigrator
+import com.university.messenger.server.security.BcryptPasswordHasher
+import com.university.messenger.server.security.JwtTokenIssuer
+import com.university.messenger.server.service.AuthService
 import com.university.messenger.server.route.authRoutes
 import com.university.messenger.server.route.channelRoutes
 import com.university.messenger.server.route.messageRoutes
@@ -28,8 +34,22 @@ import kotlinx.serialization.json.Json
 
 val AppContextKey = AttributeKey<AppContext>("AppContext")
 
-fun main() {
+fun main(args: Array<String>) {
     val config = AppConfig.fromEnv()
+    if (args.isNotEmpty()) {
+        require(args.size == 3 && args[0] == "issue-teacher-code") {
+            "Usage: issue-teacher-code <email> <department>"
+        }
+        DatabaseFactory.init(config.database)
+        SchemaMigrator.run()
+        val auth = AuthService(
+            PostgresUserRepository(),
+            BcryptPasswordHasher(),
+            JwtTokenIssuer(config.jwtSecret),
+        )
+        println(auth.issueTeacherCode(args[1], args[2]))
+        return
+    }
     val context = productionContext(config)
     println("UniMessenger API http://0.0.0.0:${config.port}")
     embeddedServer(Netty, port = config.port, host = "0.0.0.0") {

@@ -34,4 +34,10 @@
     <string name="chat_react">Dodaj reakcję</string>
     <string name="chat_reply_preview">%1$s\n%2$s</string>
     <string name="chat_edited">%1$s · edytowano</string>
+    <string name="teacher_account">Rejestruję się jako wykładowca</string>
+    <string name="teacher_continue">Przejdź do potwierdzenia</string>
+    <string name="verify_teacher">Potwierdź i utwórz konto</string>
+    <string name="teacher_code">Kod z dziekanatu</string>
+    <string name="teacher_code_help">Poproś dziekanat o sześciocyfrowy kod przypisany do Twojego adresu e-mail.</string>
+    <string name="teacher_code_error">Wpisz sześć cyfr z kodu otrzymanego w dziekanacie.</string>
 </resources>

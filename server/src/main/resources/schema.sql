@@ -40,6 +40,14 @@ CREATE TABLE IF NOT EXISTS channel_members (
     PRIMARY KEY (channel_id, user_id)
 );
 
+CREATE TABLE IF NOT EXISTS teacher_invites (
+    email TEXT PRIMARY KEY,
+    department TEXT NOT NULL,
+    code_hash TEXT NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    attempts_left INTEGER NOT NULL CHECK (attempts_left >= 0)
+);
+
 CREATE TABLE IF NOT EXISTS messages (
     id UUID PRIMARY KEY,
     channel_id UUID NOT NULL REFERENCES channels (id) ON DELETE CASCADE,

@@ -18,6 +18,11 @@ class MessengerRepository(private val api: MessengerApi = MessengerApi()) {
         SessionStore.saveLogin(response.token, response.user.role, response.user.displayName, response.user.id)
     }
 
+    suspend fun registerTeacher(email: String, password: String, displayName: String, code: String) {
+        val response = api.registerTeacher(email, password, displayName, code)
+        SessionStore.saveLogin(response.token, response.user.role, response.user.displayName, response.user.id)
+    }
+
     suspend fun channels(): List<ChannelResponse> = api.channels()
 
     suspend fun teachers(): List<UserResponse> = api.teachers()

@@ -47,6 +47,7 @@ fun buildContext(
     files: com.university.messenger.server.storage.FileStorage,
     hasher: PasswordHasher,
     tokens: TokenIssuer,
+    demoTeacherEnabled: Boolean = false,
 ): AppContext {
     val deletion = DeletionCoordinator(
         listOf(
@@ -57,7 +58,7 @@ fun buildContext(
     return AppContext(
         users = users,
         tokens = tokens,
-        auth = AuthService(users, hasher, tokens),
+        auth = AuthService(users, hasher, tokens, demoTeacherEnabled),
         channels = ChannelService(channels, users),
         messages = MessageService(messages, channels, files, deletion),
         live = ChannelLive(),
@@ -69,7 +70,7 @@ fun productionContext(config: AppConfig): AppContext {
     SchemaMigrator.run()
     val users = PostgresUserRepository()
     val hasher = BcryptPasswordHasher()
-    SeedData.run(users, hasher)
+    if (config.demoTeacherEnabled) SeedData.run(users, hasher)
     return buildContext(
         users = users,
         channels = PostgresChannelRepository(),
@@ -77,6 +78,7 @@ fun productionContext(config: AppConfig): AppContext {
         files = LocalFileStorage(config.uploadDir),
         hasher = hasher,
         tokens = JwtTokenIssuer(config.jwtSecret),
+        demoTeacherEnabled = config.demoTeacherEnabled,
     )
 }
 

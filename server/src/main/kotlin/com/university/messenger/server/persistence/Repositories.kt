@@ -6,6 +6,7 @@ import com.university.messenger.domain.model.ChannelSummary
 import com.university.messenger.domain.model.Message
 import com.university.messenger.domain.model.Role
 import com.university.messenger.domain.model.StudentItem
+import java.time.Instant
 import java.util.UUID
 
 data class StoredUser(
@@ -27,7 +28,24 @@ data class StoredAttachment(
     val channelId: UUID,
 )
 
+data class TeacherInvite(
+    val email: String,
+    val department: String,
+    val codeHash: String,
+    val expiresAt: Instant,
+    val attemptsLeft: Int = 5,
+)
+
 interface UserRepository {
+    fun saveTeacherInvite(invite: TeacherInvite)
+    fun redeemTeacherInvite(
+        id: UUID,
+        email: String,
+        hashPassword: () -> String,
+        displayName: String,
+        verify: (String) -> Boolean,
+    ): Account?
+
     fun insertStudent(id: UUID, email: String, passwordHash: String, displayName: String): Account
     fun insertTeacher(id: UUID, email: String, passwordHash: String, displayName: String, department: String): Account
     fun findByEmail(email: String): StoredUser?

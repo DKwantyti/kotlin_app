@@ -13,6 +13,7 @@ data class AppConfig(
     val database: DatabaseConfig,
     val jwtSecret: String,
     val uploadDir: Path,
+    val demoTeacherEnabled: Boolean = false,
 ) {
     companion object {
         fun fromEnv(): AppConfig = AppConfig(
@@ -23,6 +24,7 @@ data class AppConfig(
                 password = System.getenv("DB_PASSWORD") ?: "postgres",
             ),
             jwtSecret = System.getenv("JWT_SECRET") ?: "dev-secret-change-me",
+            demoTeacherEnabled = System.getenv("ENABLE_DEMO_TEACHER") == "true",
             uploadDir = Path.of(System.getenv("UPLOAD_DIR") ?: "uploads"),
         )
     }

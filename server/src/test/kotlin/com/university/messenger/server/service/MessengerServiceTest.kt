@@ -1,6 +1,7 @@
 package com.university.messenger.server.service
 
 import com.university.messenger.domain.model.DeletionMode
+import com.university.messenger.domain.model.TeacherAccount
 import com.university.messenger.server.AppException
 import com.university.messenger.server.MemoryTokens
 import com.university.messenger.server.PlainHasher
@@ -26,6 +27,40 @@ class MessengerServiceTest {
         val registered = context.auth.registerStudent("Anna@Uni.local", "Haslo123", "Anna")
         val logged = context.auth.login("anna@uni.local", "Haslo123")
         assertEquals(registered.account.id, logged.account.id)
+    }
+
+    @Test
+    fun teacherCodeIsBoundToEmailAndConsumedOnRegistration() {
+        val email = "teacher@example.edu"
+        val code = context.auth.issueTeacherCode(email, "Mathematics")
+        assertTrue(code.matches(Regex("[0-9]{6}")))
+        assertThrows<AppException.BadRequest> {
+            context.auth.registerTeacher("other@example.edu", "Haslo123", "Anna", code)
+        }
+
+        val account = context.auth.registerTeacher(email.uppercase(), "Haslo123", "Anna", code).account
+        assertTrue(account is TeacherAccount)
+        assertEquals("Mathematics", (account as TeacherAccount).department)
+        assertThrows<AppException.BadRequest> {
+            context.auth.registerTeacher(email, "Haslo123", "Anna", code)
+        }
+    }
+
+    @Test
+    fun fiveWrongCodesLockInviteUntilReissued() {
+        val email = "teacher@example.edu"
+        val code = context.auth.issueTeacherCode(email, "Mathematics")
+        val wrongCode = if (code == "000000") "000001" else "000000"
+        repeat(5) {
+            assertThrows<AppException.BadRequest> {
+                context.auth.registerTeacher(email, "Haslo123", "Anna", wrongCode)
+            }
+        }
+        assertThrows<AppException.BadRequest> {
+            context.auth.registerTeacher(email, "Haslo123", "Anna", code)
+        }
+        val newCode = context.auth.issueTeacherCode(email, "Mathematics")
+        assertTrue(context.auth.registerTeacher(email, "Haslo123", "Anna", newCode).account is TeacherAccount)
     }
 
     @Test

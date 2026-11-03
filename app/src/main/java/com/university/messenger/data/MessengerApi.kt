@@ -9,6 +9,7 @@ import com.university.messenger.domain.api.LoginRequest
 import com.university.messenger.domain.api.MessageResponse
 import com.university.messenger.domain.api.PostMessageRequest
 import com.university.messenger.domain.api.RegisterStudentRequest
+import com.university.messenger.domain.api.RegisterTeacherRequest
 import com.university.messenger.domain.api.UserResponse
 import io.ktor.client.call.body
 import io.ktor.client.request.forms.formData
@@ -44,6 +45,13 @@ class MessengerApi(private val client: io.ktor.client.HttpClient = ApiClient.htt
         return client.post(url("/api/auth/register")) {
             contentType(ContentType.Application.Json)
             setBody(RegisterStudentRequest(email, password, displayName))
+        }.parse()
+    }
+
+    suspend fun registerTeacher(email: String, password: String, displayName: String, code: String): AuthResponse {
+        return client.post(url("/api/auth/register/teacher")) {
+            contentType(ContentType.Application.Json)
+            setBody(RegisterTeacherRequest(email, password, displayName, code))
         }.parse()
     }
 

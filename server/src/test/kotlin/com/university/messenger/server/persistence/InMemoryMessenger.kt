@@ -44,6 +44,30 @@ class InMemoryMessenger : UserRepository, ChannelRepository, MessageRepository {
     private val storedNames = mutableMapOf<UUID, String>()
     private val items = mutableListOf<StudentItem>()
 
+    private val teacherInvites = mutableMapOf<String, TeacherInvite>()
+
+    override fun saveTeacherInvite(invite: TeacherInvite) {
+        teacherInvites[invite.email] = invite
+    }
+
+    override fun redeemTeacherInvite(
+        id: UUID,
+        email: String,
+        hashPassword: () -> String,
+        displayName: String,
+        verify: (String) -> Boolean,
+    ): Account? {
+        val invite = teacherInvites[email] ?: return null
+        if (invite.attemptsLeft <= 0 || !invite.expiresAt.isAfter(Instant.now())) return null
+        if (!verify(invite.codeHash)) {
+            teacherInvites[email] = invite.copy(attemptsLeft = invite.attemptsLeft - 1)
+            return null
+        }
+        val account = insertTeacher(id, email, hashPassword(), displayName, invite.department)
+        teacherInvites.remove(email)
+        return account
+    }
+
     override fun insertStudent(id: UUID, email: String, passwordHash: String, displayName: String): Account {
         return insert(id, email, passwordHash, displayName, Role.STUDENT, null)
     }

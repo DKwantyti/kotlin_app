@@ -1,6 +1,8 @@
 package com.university.messenger.server.route
 
+import com.university.messenger.domain.api.AuthResponse
 import com.university.messenger.domain.api.LoginRequest
+import com.university.messenger.domain.api.RegisterTeacherRequest
 import com.university.messenger.domain.api.RegisterStudentRequest
 import com.university.messenger.server.AppContext
 import com.university.messenger.server.toResponse
@@ -18,14 +20,19 @@ fun Route.authRoutes(context: AppContext) {
             val result = context.auth.registerStudent(request.email, request.password, request.displayName)
             call.respond(
                 HttpStatusCode.Created,
-                com.university.messenger.domain.api.AuthResponse(result.token, result.account.toResponse()),
+                AuthResponse(result.token, result.account.toResponse()),
             )
+        }
+        post("/register/teacher") {
+            val request = call.receive<RegisterTeacherRequest>()
+            val result = context.auth.registerTeacher(request.email, request.password, request.displayName, request.code)
+            call.respond(HttpStatusCode.Created, AuthResponse(result.token, result.account.toResponse()))
         }
         post("/login") {
             val request = call.receive<LoginRequest>()
             val result = context.auth.login(request.email, request.password)
             call.respond(
-                com.university.messenger.domain.api.AuthResponse(result.token, result.account.toResponse()),
+                AuthResponse(result.token, result.account.toResponse()),
             )
         }
     }

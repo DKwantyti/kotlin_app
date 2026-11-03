@@ -27,12 +27,24 @@ API: `http://localhost:8080`. Sprawdzenie: `GET /health`.
 
 PostgreSQL: baza `unimessenger`, użytkownik `postgres`, hasło `postgres`. Tabele tworzą się przy starcie. Relacja `students` → `student_items` powstaje, gdy student wysyła plik.
 
-Konto prowadzącego, tworzone przy pierwszym starcie, jeśli jeszcze go nie ma:
+Na potrzeby lokalnego demo ustaw `ENABLE_DEMO_TEACHER=true`, aby włączyć konto demonstracyjne. Domyślnie serwer nie tworzy tego konta i odrzuca logowanie na wcześniej utworzone konto demonstracyjne.
 
 - email: `teacher@uni.local`
 - hasło: `Teacher12345`
 
 Student zakłada konto sam: email i własne hasło (minimum 8 znaków, litera i cyfra).
+
+## Rejestracja wykładowcy
+
+Po sprawdzeniu statusu wykładowcy pracownik dziekanatu z dostępem do środowiska serwera wydaje kod dla jego adresu e-mail i jednostki. Polecenie korzysta z tych samych ustawień bazy co serwer. W środowisku uczelni ustaw własny `JWT_SECRET`.
+
+```bash
+./gradlew -q :server:run --args='issue-teacher-code anna@uni.local "Computer science"'
+```
+
+Przekaż wykładowcy wyświetlony kod prywatnym kanałem. Kod ma sześć cyfr (może zaczynać się od zera), jest ważny przez 24 godziny i blokuje się po pięciu błędnych próbach. Ponowne wydanie zastępuje poprzedni kod. Rejestracja wykorzystuje kod tylko raz i przypisuje jednostkę podaną przez dziekanat.
+
+W aplikacji wybierz „Rejestruję się jako wykładowca”, przejdź do potwierdzenia i wpisz kod przypisany do adresu e-mail z formularza.
 
 ## Aplikacja Android
 
@@ -43,7 +55,7 @@ Adres serwera na ekranie logowania:
 - emulator: `http://10.0.2.2:8080`
 - telefon w tej samej sieci: `http://IP-komputera:8080`
 
-Ekrany: logowanie, rejestracja studenta, lista kanałów, czat z załącznikiem.
+Ekrany: logowanie, rejestracja studenta i wykładowcy, lista kanałów, czat z załącznikiem.
 
 ## Pliki
 
@@ -65,5 +77,5 @@ Otwarty czat trzyma WebSocket `/api/channels/{id}/live` z nagłówkiem `Authoriz
 
 ## Zostawione na później
 
-- panel administratora i tworzenie kolejnych prowadzących
+- panel administratora
 - zapraszanie osób do grupy
