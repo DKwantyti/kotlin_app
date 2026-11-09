@@ -3,7 +3,54 @@
     <style name="Theme.UniMessenger" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/primary</item>
         <item name="colorOnPrimary">@color/on_primary</item>
-        <item name="android:statusBarColor">@color/primary</item>
+        <item name="colorSecondary">@color/primary</item>
+        <item name="colorOnSecondary">@color/on_primary</item>
+        <item name="colorSurface">@color/surface</item>
+        <item name="colorOnSurface">@color/text</item>
+        <item name="colorOnSurfaceVariant">@color/muted</item>
+        <item name="colorOutline">@color/outline</item>
+        <item name="colorError">@color/error</item>
+        <item name="android:colorBackground">@color/background</item>
         <item name="android:windowBackground">@color/background</item>
+        <item name="android:textColorPrimary">@color/text</item>
+        <item name="android:textColorSecondary">@color/muted</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="android:statusBarColor">@color/background</item>
+        <item name="android:navigationBarColor">@color/background</item>
+        <item name="textInputStyle">@style/Widget.Uni.Input</item>
+        <item name="materialButtonStyle">@style/Widget.Uni.Button</item>
+        <item name="editTextStyle">@style/Widget.Uni.EditText</item>
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Uni.Dialog</item>
+    </style>
+    <style name="Widget.Uni.Input" parent="Widget.Material3.TextInputLayout.OutlinedBox">
+        <item name="boxBackgroundColor">@color/surface</item>
+        <item name="boxCornerRadiusTopStart">12dp</item><item name="boxCornerRadiusTopEnd">12dp</item>
+        <item name="boxCornerRadiusBottomStart">12dp</item><item name="boxCornerRadiusBottomEnd">12dp</item>
+    </style>
+    <style name="Widget.Uni.Button" parent="Widget.Material3.Button">
+        <item name="cornerRadius">12dp</item><item name="android:minHeight">56dp</item>
+        <item name="android:textSize">15sp</item><item name="android:textAllCaps">false</item>
+    </style>
+    <style name="Widget.Uni.EditText" parent="Widget.AppCompat.EditText">
+        <item name="android:background">@drawable/input_surface</item>
+        <item name="android:textColor">@color/text</item><item name="android:textColorHint">@color/muted</item>
+        <item name="android:padding">14dp</item><item name="android:minHeight">56dp</item>
+        <item name="android:textSize">16sp</item>
+    </style>
+    <style name="ThemeOverlay.Uni.Dialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Uni.Dialog</item>
+    </style>
+    <style name="ShapeAppearance.Uni.Dialog" parent="ShapeAppearance.Material3.MediumComponent">
+        <item name="cornerSize">20dp</item>
+    </style>
+    <style name="Text.Uni.Title" parent="TextAppearance.Material3.HeadlineMedium">
+        <item name="android:textColor">@color/text</item><item name="android:textStyle">bold</item>
+    </style>
+    <style name="Text.Uni.Body" parent="TextAppearance.Material3.BodyMedium">
+        <item name="android:textColor">@color/muted</item><item name="android:lineSpacingExtra">3dp</item>
+    </style>
+    <style name="Text.Uni.Error" parent="TextAppearance.Material3.BodyMedium">
+        <item name="android:textColor">@color/error</item><item name="android:background">@drawable/error_surface</item>
+        <item name="android:padding">12dp</item><item name="android:accessibilityLiveRegion">polite</item>
     </style>
 </resources>

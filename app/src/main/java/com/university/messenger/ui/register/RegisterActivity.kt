@@ -1,14 +1,11 @@
 package com.university.messenger.ui.register
 
 import android.content.Intent
+import com.university.messenger.ui.fitWindowContent
 import android.os.Bundle
 import android.view.View
 import androidx.activity.viewModels
 import androidx.core.view.isVisible
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.updatePadding
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -62,14 +59,8 @@ class RegisterActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityRegisterBinding.inflate(layoutInflater)
-        WindowCompat.setDecorFitsSystemWindows(window, false)
         setContentView(binding.root)
-        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, insets ->
-            val padding = insets.getInsets(WindowInsetsCompat.Type.systemBars() or
-                WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.ime())
-            view.updatePadding(padding.left, padding.top, padding.right, padding.bottom)
-            insets
-        }
+        fitWindowContent(binding.root)
         binding.teacherAccount.isChecked = savedInstanceState?.getBoolean("teacher_account") == true
         binding.teacherAccount.setOnCheckedChangeListener { _, checked ->
             if (!checked) binding.teacherCode.text?.clear()
@@ -101,6 +92,7 @@ class RegisterActivity : AppCompatActivity() {
             binding.errorText.visibility = if (state.error == null) View.GONE else View.VISIBLE
             binding.errorText.text = state.error
             binding.registerButton.isEnabled = !state.loading
+            binding.loading.visibility = if (state.loading) View.VISIBLE else View.GONE
             binding.teacherAccount.isEnabled = !state.loading
             if (state.done) {
                 startActivity(Intent(this, ChannelListActivity::class.java))

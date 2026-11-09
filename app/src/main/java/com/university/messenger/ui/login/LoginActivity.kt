@@ -1,6 +1,7 @@
 package com.university.messenger.ui.login
 
 import android.content.Intent
+import com.university.messenger.ui.fitWindowContent
 import android.os.Bundle
 import android.view.View
 import androidx.activity.viewModels
@@ -54,6 +55,7 @@ class LoginActivity : AppCompatActivity() {
         }
         val binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        fitWindowContent(binding.root)
         binding.serverUrl.setText(SessionStore.baseUrl)
         binding.loginButton.setOnClickListener {
             SessionStore.baseUrl = binding.serverUrl.text.toString()
@@ -67,6 +69,7 @@ class LoginActivity : AppCompatActivity() {
             binding.errorText.visibility = if (state.error == null) View.GONE else View.VISIBLE
             binding.errorText.text = state.error
             binding.loginButton.isEnabled = !state.loading
+            binding.loading.visibility = if (state.loading) View.VISIBLE else View.GONE
             if (state.done) openChannels()
         }
     }
