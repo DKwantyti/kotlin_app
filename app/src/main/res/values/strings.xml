@@ -47,12 +47,6 @@
     <string
         name="saved_file">File saved</string>
     <string
-        name="enter_email_password">Enter email and password</string>
-    <string
-        name="sign_in_failed">Could not sign in</string>
-    <string
-        name="register_failed">Could not register</string>
-    <string
         name="chat_back">Back to conversations</string>
     <string
         name="chat_reply">Reply</string>
