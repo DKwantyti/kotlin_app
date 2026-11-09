@@ -1,32 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#E7EFF5"
+    android:background="@color/background"
     android:orientation="vertical">
-
     <androidx.appcompat.widget.Toolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        android:background="#176A99"
-        android:elevation="3dp"
-        android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar" />
-
+        android:background="@color/surface"
+        android:elevation="0dp"
+        android:titleTextColor="@color/text" />
     <TextView
         android:id="@+id/errorText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:padding="12dp"
-        android:textColor="@color/error"
+        android:textAppearance="@style/Text.Uni.Error"
         android:visibility="gone" />
-
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
         android:background="@drawable/chat_wallpaper">
-
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/messageList"
             android:layout_width="match_parent"
@@ -34,7 +32,6 @@
             android:clipToPadding="false"
             android:paddingHorizontal="10dp"
             android:paddingVertical="8dp" />
-
         <TextView
             android:id="@+id/emptyText"
             android:layout_width="wrap_content"
@@ -42,19 +39,22 @@
             android:layout_gravity="center"
             android:padding="12dp"
             android:text="@string/empty_messages"
+            android:gravity="center"
+            android:textAppearance="@style/Text.Uni.Body"
+            app:drawableTopCompat="@drawable/ic_campus_chat"
+            android:drawablePadding="16dp"
             android:textColor="@color/muted"
             android:visibility="gone" />
     </FrameLayout>
-
     <LinearLayout
         android:id="@+id/replyBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#D7EAF6"
+        android:background="@color/accent_soft"
         android:gravity="center_vertical"
         android:paddingStart="16dp"
+        android:paddingEnd="0dp"
         android:visibility="gone">
-
         <TextView
             android:id="@+id/replyDraft"
             android:layout_width="0dp"
@@ -62,8 +62,7 @@
             android:layout_weight="1"
             android:ellipsize="end"
             android:maxLines="2"
-            android:textColor="#145679" />
-
+            android:textColor="@color/primary" />
         <ImageButton
             android:id="@+id/cancelReply"
             android:layout_width="48dp"
@@ -71,16 +70,14 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/chat_cancel_reply"
             android:src="@drawable/ic_chat_close"
-            android:tint="#176A99" />
+            app:tint="@color/primary" />
     </LinearLayout>
-
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#FFFFFF"
+        android:background="@color/surface"
         android:gravity="bottom"
         android:padding="6dp">
-
         <ImageButton
             android:id="@+id/attachButton"
             android:layout_width="48dp"
@@ -88,10 +85,10 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/attach"
             android:src="@drawable/ic_chat_attach"
-            android:tint="#176A99" />
-
+            app:tint="@color/primary" />
         <EditText
             android:id="@+id/messageInput"
+            android:importantForAutofill="no"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -107,7 +104,6 @@
             android:textColor="@color/text"
             android:textColorHint="@color/muted"
             android:textSize="16sp" />
-
         <ImageButton
             android:id="@+id/sendButton"
             android:layout_width="48dp"
@@ -115,6 +111,6 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/send"
             android:src="@drawable/ic_chat_send"
-            android:tint="#176A99" />
+            app:tint="@color/primary" />
     </LinearLayout>
 </LinearLayout>

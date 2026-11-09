@@ -1,14 +1,15 @@
 package com.university.messenger.ui.channels
 
 import android.content.Intent
+import com.university.messenger.ui.fitWindowContent
+import com.university.messenger.ui.dialogContent
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.university.messenger.databinding.DialogProfileBinding
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
-import android.text.InputFilter
-import android.widget.LinearLayout
-import android.widget.TextView
 import android.widget.Toast
 import com.university.messenger.domain.api.MailPreferences
 import kotlinx.coroutines.CancellationException
@@ -141,6 +142,8 @@ class ChannelListActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         val binding = ActivityChannelsBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        fitWindowContent(binding.root)
+        binding.retryButton.setOnClickListener { viewModel.refresh() }
         binding.channelList.layoutManager = LinearLayoutManager(this)
         binding.channelList.adapter = adapter
         binding.newGroupButton.setOnClickListener { askForGroup() }
@@ -149,7 +152,9 @@ class ChannelListActivity : AppCompatActivity() {
         binding.logoutButton.setOnClickListener { logout() }
         viewModel.state.observe(this) { state ->
             adapter.submit(state.channels)
-            binding.emptyText.visibility = if (state.channels.isEmpty() && !state.loading) View.VISIBLE else View.GONE
+            binding.loading.visibility = if (state.loading) View.VISIBLE else View.GONE
+            binding.retryButton.visibility = if (state.error != null) View.VISIBLE else View.GONE
+            binding.emptyText.visibility = if (state.channels.isEmpty() && !state.loading && state.error == null) View.VISIBLE else View.GONE
             binding.errorText.visibility = if (state.error == null) View.GONE else View.VISIBLE
             binding.errorText.text = state.error
             state.opened?.let { channel ->
@@ -174,30 +179,21 @@ class ChannelListActivity : AppCompatActivity() {
     }
 
     private fun showProfile(profile: UserResponse) {
-        val spacing = (24 * resources.displayMetrics.density).toInt()
-        val input = EditText(this).apply {
-            hint = getString(R.string.display_name)
-            filters = arrayOf(InputFilter.LengthFilter(120))
-            setSingleLine()
-            setText(profile.displayName)
-        }
+        val profileBinding = DialogProfileBinding.inflate(layoutInflater)
+        val input = profileBinding.profileName
+        input.setText(profile.displayName)
         val role = getString(if (profile.role == "TEACHER") R.string.profile_teacher else R.string.profile_student)
-        val details = TextView(this).apply {
-            text = listOfNotNull(profile.email, role, profile.department).joinToString("\n")
-        }
-        val content = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(spacing, 0, spacing, 0)
-            addView(details)
-            addView(input)
-        }
-        val dialog = AlertDialog.Builder(this)
+        profileBinding.profileDetails.text = listOfNotNull(role, profile.email, profile.department).joinToString("\n")
+        val dialog = MaterialAlertDialogBuilder(this)
             .setTitle(R.string.profile)
-            .setView(content)
-            .setNeutralButton(R.string.profile_mail) { _, _ -> viewModel.loadMailPreferences(::showMailPreferences) }
+            .setView(profileBinding.root)
             .setNegativeButton(R.string.cancel, null)
             .setPositiveButton(R.string.save, null)
             .show()
+        profileBinding.mailButton.setOnClickListener {
+            dialog.dismiss()
+            viewModel.loadMailPreferences(::showMailPreferences)
+        }
         val save = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
         save.setOnClickListener {
             val name = input.text.toString()
@@ -215,7 +211,7 @@ class ChannelListActivity : AppCompatActivity() {
 
     private fun showMailPreferences(preferences: MailPreferences) {
         if (isFinishing || isDestroyed) return
-        val dialog = AlertDialog.Builder(this)
+        val dialog = MaterialAlertDialogBuilder(this)
             .setTitle(R.string.profile_mail)
             .setNegativeButton(R.string.cancel, null)
         when {
@@ -241,22 +237,27 @@ class ChannelListActivity : AppCompatActivity() {
     private fun askForGroup() {
         val input = EditText(this)
         input.hint = getString(R.string.group_name)
-        AlertDialog.Builder(this)
+        val dialog = MaterialAlertDialogBuilder(this)
             .setTitle(R.string.new_group)
-            .setView(input)
-            .setPositiveButton(R.string.create) { _, _ ->
-                val name = input.text.toString().trim()
-                if (name.length >= 2) viewModel.createGroup(name)
-            }
+            .setView(dialogContent(input))
+            .setPositiveButton(R.string.create, null)
             .setNegativeButton(R.string.cancel, null)
             .show()
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val name = input.text.toString().trim()
+            if (name.length < 2) input.error = getString(R.string.group_name_error)
+            else { viewModel.createGroup(name); dialog.dismiss() }
+        }
     }
 
     private fun pickTeacher() {
         viewModel.loadTeachers { teachers ->
-            if (teachers.isEmpty()) return@loadTeachers
+            if (teachers.isEmpty()) {
+                MaterialAlertDialogBuilder(this).setTitle(R.string.teachers).setMessage(R.string.no_teachers).setPositiveButton(R.string.cancel, null).show()
+                return@loadTeachers
+            }
             val names = teachers.map { it.displayName }.toTypedArray()
-            AlertDialog.Builder(this)
+            MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.teachers)
                 .setItems(names) { _, index -> viewModel.openDirect(teachers[index].id) }
                 .show()
@@ -283,7 +284,7 @@ private class ChannelAdapter(
     override fun onBindViewHolder(holder: Holder, position: Int) {
         val item = items[position]
         holder.binding.channelTitle.text = item.title
-        holder.binding.channelKind.text = if (item.kind == "DIRECT") "Chat" else "Group"
+        holder.binding.channelKind.setText(if (item.kind == "DIRECT") R.string.direct_label else R.string.group_label)
         holder.binding.root.setOnClickListener { onClick(item) }
     }
 

@@ -3,7 +3,6 @@ package com.university.messenger.ui.chat
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.res.ColorStateList
-import android.graphics.Color
 import android.net.Uri
 import android.view.Gravity
 import android.view.inputmethod.InputMethodManager
@@ -15,10 +14,6 @@ import android.text.InputFilter
 import com.university.messenger.domain.model.DeletionMode
 import androidx.appcompat.app.AlertDialog
 import androidx.core.view.isVisible
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.updatePadding
-import androidx.core.view.WindowCompat
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import com.google.android.material.chip.Chip
@@ -27,6 +22,10 @@ import com.university.messenger.domain.api.messageReactionEmoji
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import com.university.messenger.ui.fitWindowContent
+import com.university.messenger.ui.dialogContent
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import androidx.core.content.ContextCompat
 import android.os.Bundle
 import android.provider.OpenableColumns
 import android.view.LayoutInflater
@@ -249,14 +248,8 @@ class ChatActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityChatBinding.inflate(layoutInflater)
-        WindowCompat.setDecorFitsSystemWindows(window, false)
         setContentView(binding.root)
-        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, insets ->
-            val padding = insets.getInsets(WindowInsetsCompat.Type.systemBars() or
-                WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.ime())
-            view.updatePadding(padding.left, padding.top, padding.right, padding.bottom)
-            insets
-        }
+        fitWindowContent(binding.root)
         binding.toolbar.title = intent.getStringExtra(EXTRA_TITLE).orEmpty()
         binding.toolbar.setNavigationIcon(R.drawable.ic_chat_back)
         binding.toolbar.setNavigationContentDescription(R.string.chat_back)
@@ -347,7 +340,7 @@ class ChatActivity : AppCompatActivity() {
             getString(R.string.chat_react) to {
                 val selected = message.reactions[SessionStore.userId]
                 val options = messageReactionEmoji.map { if (it == selected) "$it ✓" else it }
-                AlertDialog.Builder(this)
+                MaterialAlertDialogBuilder(this)
                     .setTitle(R.string.chat_react)
                     .setItems(options.toTypedArray()) { _, index -> viewModel.react(message, messageReactionEmoji[index]) }
                     .show()
@@ -368,7 +361,7 @@ class ChatActivity : AppCompatActivity() {
                     .setPrimaryClip(ClipData.newPlainText(getString(R.string.message_hint), message.body))
             }
         }
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setItems(actions.map { it.first }.toTypedArray()) { _, index -> actions[index].second() }
             .show()
     }
@@ -379,9 +372,9 @@ class ChatActivity : AppCompatActivity() {
             filters = arrayOf(InputFilter.LengthFilter(120))
             setSingleLine()
         }
-        val dialog = AlertDialog.Builder(this)
+        val dialog = MaterialAlertDialogBuilder(this)
             .setTitle(R.string.chat_search)
-            .setView(input)
+            .setView(dialogContent(input))
             .setNegativeButton(R.string.cancel, null)
             .setPositiveButton(R.string.chat_search, null)
             .show()
@@ -406,7 +399,7 @@ class ChatActivity : AppCompatActivity() {
     }
 
     private fun showSearchResults(results: List<MessageResponse>) {
-        val dialog = AlertDialog.Builder(this)
+        val dialog = MaterialAlertDialogBuilder(this)
             .setTitle(R.string.chat_search_results)
             .setNegativeButton(R.string.cancel, null)
         if (results.isEmpty()) {
@@ -417,7 +410,7 @@ class ChatActivity : AppCompatActivity() {
                 if (adapter.currentList.any { it.message.id == message.id }) {
                     jumpTo(message.id)
                 } else {
-                    val details = AlertDialog.Builder(this)
+                    val details = MaterialAlertDialogBuilder(this)
                         .setTitle(message.authorName)
                         .setMessage(listOf(message.body, message.attachments.joinToString("\n") { it.fileName })
                             .filter { it.isNotBlank() }.joinToString("\n\n"))
@@ -454,10 +447,10 @@ class ChatActivity : AppCompatActivity() {
             addView(subject)
             addView(body)
         }
-        val dialog = AlertDialog.Builder(this)
+        val dialog = MaterialAlertDialogBuilder(this)
             .setTitle(R.string.group_mail)
             .setMessage(R.string.group_mail_help)
-            .setView(content)
+            .setView(dialogContent(content))
             .setNegativeButton(R.string.cancel, null)
             .setPositiveButton(R.string.send, null)
             .show()
@@ -490,9 +483,9 @@ class ChatActivity : AppCompatActivity() {
             hint = getString(R.string.email)
             setSingleLine()
         }
-        val dialog = AlertDialog.Builder(this)
+        val dialog = MaterialAlertDialogBuilder(this)
             .setTitle(R.string.chat_add_member)
-            .setView(input)
+            .setView(dialogContent(input))
             .setNegativeButton(R.string.cancel, null)
             .setPositiveButton(R.string.chat_add_member, null)
             .show()
@@ -516,9 +509,9 @@ class ChatActivity : AppCompatActivity() {
             setText(message.body)
             setSelection(length())
         }
-        val dialog = AlertDialog.Builder(this)
+        val dialog = MaterialAlertDialogBuilder(this)
             .setTitle(R.string.chat_edit)
-            .setView(input)
+            .setView(dialogContent(input))
             .setNegativeButton(R.string.cancel, null)
             .setPositiveButton(R.string.save, null)
             .show()
@@ -534,7 +527,7 @@ class ChatActivity : AppCompatActivity() {
     }
 
     private fun showDelete(message: MessageResponse) {
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle(R.string.chat_delete)
             .setMessage(R.string.chat_delete_help)
             .setNegativeButton(R.string.cancel, null)
@@ -591,6 +584,8 @@ private class MessageAdapter(
         val own = message.authorId == SessionStore.userId
         val bubble = binding.bubble
         val gutter = (48 * context.resources.displayMetrics.density).toInt()
+        val maxTextWidth = ((context.resources.configuration.screenWidthDp - 96).coerceAtLeast(120) * context.resources.displayMetrics.density).toInt()
+        listOf(binding.body, binding.files, binding.quote, binding.author).forEach { it.maxWidth = maxTextWidth }
         bubble.layoutParams = (bubble.layoutParams as FrameLayout.LayoutParams).apply {
             gravity = if (own) Gravity.END else Gravity.START
             marginStart = if (own) gutter else 0
@@ -626,9 +621,10 @@ private class MessageAdapter(
         for ((emoji, count) in counts.entries.sortedBy { messageReactionEmoji.indexOf(it.key) }) {
             val selected = message.reactions[SessionStore.userId] == emoji
             binding.reactions.addView(Chip(context).apply {
-                text = "$emoji $count"
+                text = context.getString(R.string.reaction_count, emoji, count)
                 isSelected = selected
-                chipBackgroundColor = ColorStateList.valueOf(Color.parseColor(if (selected) "#A8D8F3" else "#EDF3F7"))
+                setTextColor(ContextCompat.getColor(context, R.color.text))
+                chipBackgroundColor = ColorStateList.valueOf(ContextCompat.getColor(context, if (selected) R.color.outgoing else R.color.accent_soft))
                 setOnClickListener { onReact(message, emoji) }
             })
         }
